@@ -1,0 +1,110 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String                 @id @default(uuid())
+  email        String                 @unique
+  passwordHash String                 @map("password_hash")
+  name         String
+  createdAt    DateTime               @default(now()) @map("created_at")
+  progress     UserProblemProgress[]
+
+  @@map("users")
+}
+
+model PatternGroup {
+  id           String    @id @default(uuid())
+  name         String
+  slug         String    @unique
+  description  String
+  displayOrder Int       @map("display_order")
+  patterns     Pattern[]
+
+  @@map("pattern_groups")
+}
+
+model Pattern {
+  id              String           @id @default(uuid())
+  patternGroupId  String           @map("pattern_group_id")
+  patternGroup    PatternGroup     @relation(fields: [patternGroupId], references: [id], onDelete: Cascade)
+  name            String
+  slug            String           @unique
+  triggerCue      String           @map("trigger_cue")
+  coreIdea        String           @map("core_idea")
+  whyItWorks      String           @map("why_it_works")
+  codeSkeleton    String           @map("code_skeleton")
+  timeComplexity  String           @map("time_complexity")
+  spaceComplexity String           @map("space_complexity")
+  commonMistake   String           @map("common_mistake")
+  comparisonNotes String?          @map("comparison_notes")
+  displayOrder    Int              @map("display_order")
+  problems        ProblemPattern[]
+
+  @@map("patterns")
+}
+
+model Problem {
+  id                    String           @id @default(uuid())
+  title                 String
+  leetcodeUrl           String           @map("leetcode_url")
+  leetcodeProblemNumber Int?             @map("leetcode_problem_number")
+  difficulty            Difficulty
+  descriptionShort      String?          @map("description_short")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  patterns              ProblemPattern[]
+  progress              UserProblemProgress[]
+
+  @@map("problems")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model ProblemPattern {
+  problemId String   @map("problem_id")
+  patternId String   @map("pattern_id")
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  pattern   Pattern  @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  isPrimary Boolean  @default(true) @map("is_primary")
+
+  @@id([problemId, patternId])
+  @@map("problem_patterns")
+}
+
+model UserProblemProgress {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId       String            @map("problem_id")
+  problem         Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  status          ProgressStatus    @default(NOT_STARTED)
+  confidenceLevel Int?              @map("confidence_level")
+  dryRunNotes     String            @default("") @map("dry_run_notes")
+  whyNotes        String            @default("") @map("why_notes")
+  mistakeLog      Json              @default("[]") @map("mistake_log")
+  freeNotes       String?           @map("free_notes")
+  lastReviewedAt  DateTime?         @map("last_reviewed_at")
+  nextReviewAt    DateTime?         @map("next_review_at")
+  reviewCount     Int               @default(0) @map("review_count")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@unique([userId, problemId])
+  @@map("user_problem_progresses")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  ATTEMPTED
+  SOLVED
+  CONFIDENT
+}
