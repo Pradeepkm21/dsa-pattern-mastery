@@ -125,11 +125,15 @@ export const PatternDetail: React.FC = () => {
 
   const getProcessedProblems = () => {
     if (!pattern) return [];
+    
+    // Only show hand-curated core problems on the Pattern Detail page
+    const curatedProblems = pattern.problems.filter(p => p.leetcodeProblemNumber !== null);
+
     if (selectedCompany === 'all') {
-      return pattern.problems;
+      return curatedProblems;
     }
 
-    return [...pattern.problems].sort((a, b) => {
+    return [...curatedProblems].sort((a, b) => {
       const aCompany = a.companies?.find(c => c.companySlug === selectedCompany);
       const bCompany = b.companies?.find(c => c.companySlug === selectedCompany);
 
