@@ -977,6 +977,15 @@ function minMeetingRooms(intervals: number[][]): number {
     slugToPatternMap.set(pat.slug, pat);
   });
 
+  // Extract URLs of the original 75 problems
+  const originalProblems = await prisma.problem.findMany({
+    where: { leetcodeProblemNumber: { not: null } }
+  });
+  const originalUrls = new Set<string>();
+  originalProblems.forEach((p) => {
+    originalUrls.add(normalizeUrl(p.leetcodeUrl));
+  });
+
   // 2. Pre-create the 20 target companies
   const companySlugToId = new Map<string, string>();
   const companySlugs: string[] = [];
@@ -1027,6 +1036,16 @@ function minMeetingRooms(intervals: number[][]): number {
       const linkIdx = header.findIndex(h => h.toLowerCase() === 'link');
       const topicsIdx = header.findIndex(h => h.toLowerCase() === 'topics');
 
+      const candidates: Array<{
+        title: string;
+        leetcodeUrl: string;
+        normalizedUrl: string;
+        difficulty: Difficulty;
+        frequencyScore: number;
+        patternSlug: string | null;
+        isOriginal: boolean;
+      }> = [];
+
       for (let i = 1; i < lines.length; i++) {
         const columns = parseCSVLine(lines[i]);
         if (columns.length < 5) continue;
@@ -1039,30 +1058,67 @@ function minMeetingRooms(intervals: number[][]): number {
 
         if (!title || !leetcodeUrl) continue;
 
-        const patternMapping = getPatternSlugForProblem(topicsStr);
-        if (!patternMapping) continue; // Filter
-
         const normalizedUrl = normalizeUrl(leetcodeUrl);
+        const isOriginal = originalUrls.has(normalizedUrl);
 
+        let difficulty: Difficulty = Difficulty.MEDIUM;
+        const diffUpper = rawDifficulty.toUpperCase();
+        if (diffUpper === 'EASY') difficulty = Difficulty.EASY;
+        else if (diffUpper === 'HARD') difficulty = Difficulty.HARD;
+
+        if (isOriginal) {
+          candidates.push({
+            title,
+            leetcodeUrl,
+            normalizedUrl,
+            difficulty,
+            frequencyScore: rawFrequency,
+            patternSlug: null,
+            isOriginal: true,
+          });
+        } else {
+          // Rule 1: Skip if frequency < 50
+          if (rawFrequency < 50) continue;
+
+          // Rule 2: Skip if pattern is not in the 19 valid slugs
+          const patternMapping = getPatternSlugForProblem(topicsStr);
+          if (!patternMapping || !slugToPatternMap.has(patternMapping.slug)) {
+            continue;
+          }
+
+          candidates.push({
+            title,
+            leetcodeUrl,
+            normalizedUrl,
+            difficulty,
+            frequencyScore: rawFrequency,
+            patternSlug: patternMapping.slug,
+            isOriginal: false,
+          });
+        }
+      }
+
+      // Sort by frequencyScore descending and keep top 100
+      candidates.sort((a, b) => b.frequencyScore - a.frequencyScore);
+      const topCandidates = candidates.slice(0, 100);
+
+      for (const candidate of topCandidates) {
         // Queue CompanyProblem relation link
         companyProblemsToCreate.push({
           companySlug,
-          normalizedUrl,
-          frequencyScore: rawFrequency,
+          normalizedUrl: candidate.normalizedUrl,
+          frequencyScore: candidate.frequencyScore,
         });
 
         // Queue new Problem if it doesn't exist in either DB or newProblemsMap
-        if (!urlToIdMap.has(normalizedUrl) && !newProblemsMap.has(normalizedUrl)) {
-          let difficulty: Difficulty = Difficulty.MEDIUM;
-          const diffUpper = rawDifficulty.toUpperCase();
-          if (diffUpper === 'EASY') difficulty = Difficulty.EASY;
-          else if (diffUpper === 'HARD') difficulty = Difficulty.HARD;
-
-          newProblemsMap.set(normalizedUrl, {
-            title,
-            difficulty,
-            patternSlug: patternMapping.slug,
-          });
+        if (!candidate.isOriginal && candidate.patternSlug) {
+          if (!urlToIdMap.has(candidate.normalizedUrl) && !newProblemsMap.has(candidate.normalizedUrl)) {
+            newProblemsMap.set(candidate.normalizedUrl, {
+              title: candidate.title,
+              difficulty: candidate.difficulty,
+              patternSlug: candidate.patternSlug,
+            });
+          }
         }
       }
     } catch (err: any) {
@@ -1222,7 +1278,7 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
     if (topics.some(t => t === 'Hash Table')) {
       return { slug: 'intersection-offset-pointers', group: 'linked-list' };
     }
-    return { slug: 'fast-slow-pointer', group: 'linked-list' }; // Default fallback
+    return null; // No default fallback!
   }
 
   if (hasArray) {
@@ -1235,19 +1291,13 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
     if (topics.some(t => t === 'Prefix Sum')) {
       return { slug: 'prefix-sum-hashmap', group: 'array' };
     }
-    if (topics.some(t => t === 'Hash Table')) {
-      return { slug: 'prefix-sum-hashmap', group: 'array' };
-    }
-    if (topics.some(t => t === 'Dynamic Programming')) {
+    if (topics.some(t => t === 'Dynamic Programming') && topicsLower.includes('subarray')) {
       return { slug: 'kadanes-algorithm', group: 'array' };
     }
     if (topics.some(t => t === 'Divide and Conquer')) {
       return { slug: 'merge-sort-divide-conquer', group: 'array' };
     }
-    if (topics.some(t => t === 'Sorting')) {
-      return { slug: 'sort-greedy', group: 'array' };
-    }
-    if (topics.some(t => t === 'Greedy')) {
+    if (topics.some(t => t === 'Sorting') || topics.some(t => t === 'Greedy')) {
       return { slug: 'sort-greedy', group: 'array' };
     }
     if (topics.some(t => t === 'Bit Manipulation')) {
@@ -1268,7 +1318,7 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
     if (topics.some(t => t === 'Binary Search')) {
       return { slug: 'binary-search-on-answer', group: 'array' };
     }
-    return { slug: 'two-pointer', group: 'array' }; // Default fallback
+    return null; // No default fallback!
   }
 
   return null;
