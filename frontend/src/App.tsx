@@ -9,6 +9,8 @@ import { Dashboard } from './pages/Dashboard';
 import { PatternLibrary } from './pages/PatternLibrary';
 import { PatternDetail } from './pages/PatternDetail';
 import { ProblemDetail } from './pages/ProblemDetail';
+import { Companies } from './pages/Companies';
+import { CompanyDetail } from './pages/CompanyDetail';
 
 const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -76,6 +78,26 @@ export const App: React.FC = () => {
               <ProtectedRoute>
                 <AppLayout>
                   <ProblemDetail />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/companies"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Companies />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/companies/:slug"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CompanyDetail />
                 </AppLayout>
               </ProtectedRoute>
             }

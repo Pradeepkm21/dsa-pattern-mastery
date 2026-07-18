@@ -25,6 +25,11 @@ export class ProgressService {
         progress: {
           where: { userId },
         },
+        companies: {
+          include: {
+            company: true,
+          },
+        },
       },
     });
 
@@ -47,6 +52,16 @@ export class ProgressService {
         slug: pp.pattern.slug,
         isPrimary: pp.isPrimary,
       })),
+      companies: problem.companies
+        ? problem.companies
+            .map((cp) => ({
+              companyName: cp.company.name,
+              companySlug: cp.company.slug,
+              frequencyScore: cp.frequencyScore,
+              timeframe: cp.timeframe,
+            }))
+            .sort((a, b) => b.frequencyScore - a.frequencyScore)
+        : [],
       progress: userProgress
         ? {
             status: userProgress.status,

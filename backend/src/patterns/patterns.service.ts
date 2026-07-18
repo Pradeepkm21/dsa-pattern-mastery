@@ -39,6 +39,11 @@ export class PatternsService {
                     },
                   },
                 },
+                companies: {
+                  include: {
+                    company: true,
+                  },
+                },
               },
             },
           },
@@ -83,6 +88,14 @@ export class PatternsService {
           slug: otherPp.pattern.slug,
           isPrimary: otherPp.isPrimary,
         })),
+        companies: p.companies
+          ? p.companies.map((cp) => ({
+              companyName: cp.company.name,
+              companySlug: cp.company.slug,
+              frequencyScore: cp.frequencyScore,
+              timeframe: cp.timeframe,
+            }))
+          : [],
       };
     });
 

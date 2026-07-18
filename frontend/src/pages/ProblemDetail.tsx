@@ -11,7 +11,8 @@ import {
   Edit3, 
   Eye, 
   CalendarClock,
-  Sparkles
+  Sparkles,
+  Building2
 } from 'lucide-react';
 
 interface Pattern {
@@ -34,6 +35,7 @@ interface ProblemDetail {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   descriptionShort: string | null;
   patterns: Pattern[];
+  companies?: Array<{ companyName: string; companySlug: string; frequencyScore: number; timeframe: string }>;
   progress: {
     status: string;
     confidenceLevel: number | null;
@@ -507,6 +509,45 @@ export const ProblemDetail: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Asked At Companies Sidebar Card */}
+            {problem.companies && problem.companies.length > 0 && (
+              <div className="glass-panel rounded-2xl p-5 border border-white/5 space-y-4 shadow-xl">
+                <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+                  <Building2 className="w-4 h-4 text-brand-400" />
+                  <h3 className="text-sm font-bold text-white font-outfit uppercase tracking-wider">
+                    Asked At Companies
+                  </h3>
+                </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {problem.companies.map((comp) => (
+                    <div
+                      key={comp.companySlug}
+                      className="flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <Link
+                          to={`/companies/${comp.companySlug}`}
+                          className="font-bold text-slate-300 hover:text-brand-400 transition-colors"
+                        >
+                          {comp.companyName}
+                        </Link>
+                        <span className="font-mono font-semibold text-brand-400">
+                          {comp.frequencyScore.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-dark-900 rounded-full overflow-hidden border border-white/5">
+                        <div
+                          className="h-full bg-gradient-to-r from-brand-600 to-brand-500 rounded-full"
+                          style={{ width: `${comp.frequencyScore}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

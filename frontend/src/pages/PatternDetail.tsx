@@ -30,6 +30,7 @@ interface Problem {
     reviewCount: number;
   };
   allPatterns: Array<{ id: string; name: string; slug: string; isPrimary: boolean }>;
+  companies?: Array<{ companyName: string; companySlug: string; frequencyScore: number; timeframe: string }>;
 }
 
 interface PatternDetail {
@@ -53,6 +54,8 @@ export const PatternDetail: React.FC = () => {
   const [pattern, setPattern] = useState<PatternDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [companiesList, setCompaniesList] = useState<Array<{ id: string; name: string; slug: string; problemCount: number }>>([]);
   const navigate = useNavigate();
 
   const handleBack = (e: React.MouseEvent) => {
@@ -68,12 +71,20 @@ export const PatternDetail: React.FC = () => {
     const fetchPatternDetails = async () => {
       if (!slug) return;
       try {
-        const response = await api(`/patterns/${slug}`);
-        if (!response.ok) {
+        const [patternRes, companiesRes] = await Promise.all([
+          api(`/patterns/${slug}`),
+          api('/companies')
+        ]);
+        if (!patternRes.ok) {
           throw new Error('Failed to load pattern details');
         }
-        const data = await response.json();
-        setPattern(data);
+        if (!companiesRes.ok) {
+          throw new Error('Failed to load companies list');
+        }
+        const patternData = await patternRes.json();
+        const companiesData = await companiesRes.json();
+        setPattern(patternData);
+        setCompaniesList(companiesData);
       } catch (err: any) {
         setError(err.message || 'Something went wrong.');
       } finally {
@@ -111,6 +122,25 @@ export const PatternDetail: React.FC = () => {
       </div>
     );
   }
+
+  const getProcessedProblems = () => {
+    if (!pattern) return [];
+    if (selectedCompany === 'all') {
+      return pattern.problems;
+    }
+
+    return [...pattern.problems].sort((a, b) => {
+      const aCompany = a.companies?.find(c => c.companySlug === selectedCompany);
+      const bCompany = b.companies?.find(c => c.companySlug === selectedCompany);
+
+      const aScore = aCompany ? aCompany.frequencyScore : -1;
+      const bScore = bCompany ? bCompany.frequencyScore : -1;
+
+      return bScore - aScore;
+    });
+  };
+
+  const processedProblems = getProcessedProblems();
 
   return (
     <div className="min-h-screen bg-[#080C14] bg-grid-pattern relative pb-16">
@@ -237,99 +267,160 @@ export const PatternDetail: React.FC = () => {
 
           {/* Sidebar: Problems List (1 Column) */}
           <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <Bookmark className="w-5 h-5 text-brand-400" />
-              <h2 className="text-2xl font-bold text-white font-outfit">Linked Problems</h2>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Bookmark className="w-5 h-5 text-brand-400" />
+                <h2 className="text-2xl font-bold text-white font-outfit">Linked Problems</h2>
+              </div>
+
+              {/* Company Filter Dropdown */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Filter by Company
+                </label>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="w-full py-2.5 px-3 bg-dark-900 border border-white/10 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all cursor-pointer shadow-inner"
+                >
+                  <option value="all">All Companies</option>
+                  {companiesList.map((comp) => (
+                    <option key={comp.slug} value={comp.slug}>
+                      {comp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-4">
-              {pattern.problems.map((prob) => (
-                <div
-                  key={prob.id}
-                  className="glass-panel rounded-2xl p-4 border border-white/5 flex flex-col justify-between gap-3 shadow-md hover:border-brand-500/25 transition-all"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <Link
-                        to={`/problems/${prob.id}`}
-                        className="text-sm font-bold text-white hover:text-brand-400 transition-all font-outfit leading-snug line-clamp-1"
-                      >
-                        {prob.leetcodeProblemNumber && `#${prob.leetcodeProblemNumber} `}
-                        {prob.title}
-                      </Link>
-                      
-                      <span
-                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${
-                          prob.difficulty === 'EASY'
-                            ? 'bg-green-500/10 text-green-400'
-                            : prob.difficulty === 'MEDIUM'
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : 'bg-red-500/10 text-red-400'
-                        }`}
-                      >
-                        {prob.difficulty}
-                      </span>
-                    </div>
+              {processedProblems.map((prob) => {
+                const activeCompanyDetails = selectedCompany !== 'all' 
+                  ? prob.companies?.find(c => c.companySlug === selectedCompany)
+                  : null;
 
-                    <p className="text-[11px] text-slate-400 line-clamp-2">
-                      {prob.descriptionShort || 'No description added.'}
-                    </p>
-
-                    {/* All patterns badge tags */}
-                    <div className="flex flex-wrap gap-1">
-                      {prob.allPatterns.map((pat) => (
+                return (
+                  <div
+                    key={prob.id}
+                    className="glass-panel rounded-2xl p-4 border border-white/5 flex flex-col justify-between gap-3 shadow-md hover:border-brand-500/25 transition-all"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <Link
+                            to={`/problems/${prob.id}`}
+                            className="text-sm font-bold text-white hover:text-brand-400 transition-all font-outfit leading-snug line-clamp-1"
+                          >
+                            {prob.leetcodeProblemNumber && `#${prob.leetcodeProblemNumber} `}
+                            {prob.title}
+                          </Link>
+                          {activeCompanyDetails && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-brand-400 font-bold font-mono">
+                              <span>Score: {activeCompanyDetails.frequencyScore.toFixed(1)}</span>
+                            </div>
+                          )}
+                        </div>
+                        
                         <span
-                          key={pat.slug}
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
-                            pat.slug === pattern.slug
-                              ? 'bg-brand-500/20 text-brand-300 border border-brand-500/20'
-                              : 'bg-slate-800 text-slate-400'
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${
+                            prob.difficulty === 'EASY'
+                              ? 'bg-green-500/10 text-green-400'
+                              : prob.difficulty === 'MEDIUM'
+                              ? 'bg-amber-500/10 text-amber-400'
+                              : 'bg-red-500/10 text-red-400'
                           }`}
                         >
-                          {pat.name}
+                          {prob.difficulty}
                         </span>
-                      ))}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 line-clamp-2">
+                        {prob.descriptionShort || 'No description added.'}
+                      </p>
+
+                      {/* Top 3 Companies Badges */}
+                      {prob.companies && prob.companies.length > 0 && (
+                        <div className="flex items-center gap-1 pt-1">
+                          <span className="text-[9px] text-slate-500 font-semibold mr-1">Asked at:</span>
+                          <div className="flex gap-1 flex-wrap">
+                            {prob.companies.slice(0, 3).map((comp) => {
+                              const shortLabel = comp.companyName.charAt(0);
+                              return (
+                                <Link
+                                  key={comp.companySlug}
+                                  to={`/companies/${comp.companySlug}`}
+                                  className="w-5 h-5 rounded-md bg-white/5 border border-white/5 flex items-center justify-center text-[9.5px] font-bold text-slate-300 hover:border-brand-500/30 hover:text-brand-400 transition-all font-outfit"
+                                  title={`${comp.companyName} (Score: ${comp.frequencyScore.toFixed(1)})`}
+                                >
+                                  {shortLabel}
+                                </Link>
+                              );
+                            })}
+                            {prob.companies.length > 3 && (
+                              <span className="text-[9px] text-slate-500 font-medium self-center pl-0.5">
+                                +{prob.companies.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* All patterns badge tags */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {prob.allPatterns.map((pat) => (
+                          <span
+                            key={pat.slug}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                              pat.slug === pattern.slug
+                                ? 'bg-brand-500/20 text-brand-300 border border-brand-500/20'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {pat.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/5 pt-3 flex items-center justify-between mt-1">
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2.5 h-2.5 rounded-full ${
+                          prob.progress.status === 'CONFIDENT'
+                            ? 'bg-emerald-500 shadow-md shadow-emerald-500/35'
+                            : prob.progress.status === 'SOLVED'
+                            ? 'bg-blue-500 shadow-md shadow-blue-500/35'
+                            : prob.progress.status === 'ATTEMPTED'
+                            ? 'bg-amber-500 shadow-md shadow-amber-500/35'
+                            : 'bg-slate-700'
+                        }`}></span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                          {prob.progress.status.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={prob.leetcodeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-slate-500 hover:text-slate-300 transition-all p-1"
+                          title="LeetCode Link"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <Link
+                          to={`/problems/${prob.id}`}
+                          className="text-[11px] font-bold text-brand-400 hover:text-brand-300 transition-all flex items-center"
+                        >
+                          Track
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="border-t border-white/5 pt-3 flex items-center justify-between mt-1">
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        prob.progress.status === 'CONFIDENT'
-                          ? 'bg-emerald-500 shadow-md shadow-emerald-500/35'
-                          : prob.progress.status === 'SOLVED'
-                          ? 'bg-blue-500 shadow-md shadow-blue-500/35'
-                          : prob.progress.status === 'ATTEMPTED'
-                          ? 'bg-amber-500 shadow-md shadow-amber-500/35'
-                          : 'bg-slate-700'
-                      }`}></span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                        {prob.progress.status.replace('_', ' ')}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={prob.leetcodeUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-500 hover:text-slate-300 transition-all p-1"
-                        title="LeetCode Link"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <Link
-                        to={`/problems/${prob.id}`}
-                        className="text-[11px] font-bold text-brand-400 hover:text-brand-300 transition-all flex items-center"
-                      >
-                        Track
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

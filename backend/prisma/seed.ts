@@ -937,7 +937,341 @@ function minMeetingRooms(intervals: number[][]): number {
   }
 
   console.log('Seeded problem-pattern relationships successfully.');
+
+  // --- SEED COMPANIES AND COMPANY-WISE PROBLEMS (OPTIMIZED) ---
+  console.log('Starting Company and CompanyProblem Seeding (Optimized)...');
+
+  const COMPANY_FOLDERS: Record<string, string> = {
+    'Google': 'Google',
+    'Amazon': 'Amazon',
+    'Meta': 'Meta',
+    'Microsoft': 'Microsoft',
+    'Apple': 'Apple',
+    'Netflix': 'Netflix',
+    'Adobe': 'Adobe',
+    'Uber': 'Uber',
+    'Bloomberg': 'Bloomberg',
+    'LinkedIn': 'LinkedIn',
+    'Atlassian': 'Atlassian',
+    'Salesforce': 'Salesforce',
+    'TCS': 'tcs',
+    'Infosys': 'Infosys',
+    'Wipro': 'Wipro',
+    'Cognizant': 'Cognizant',
+    'Accenture': 'Accenture',
+    'Flipkart': 'Flipkart',
+    'Paytm': 'Paytm',
+    'Swiggy': 'Swiggy'
+  };
+
+  // 1. Preload all existing problems and patterns to build lookup maps
+  let existingProblems = await prisma.problem.findMany();
+  const urlToIdMap = new Map<string, string>();
+  existingProblems.forEach((p) => {
+    urlToIdMap.set(normalizeUrl(p.leetcodeUrl), p.id);
+  });
+
+  const allPatterns = await prisma.pattern.findMany();
+  const slugToPatternMap = new Map<string, any>();
+  allPatterns.forEach((pat) => {
+    slugToPatternMap.set(pat.slug, pat);
+  });
+
+  // 2. Pre-create the 20 target companies
+  const companySlugToId = new Map<string, string>();
+  const companySlugs: string[] = [];
+  for (const companyName of Object.keys(COMPANY_FOLDERS)) {
+    const slug = companyName.toLowerCase().replace(/\s+/g, '-');
+    companySlugs.push(slug);
+    const company = await prisma.company.upsert({
+      where: { slug },
+      update: { name: companyName },
+      create: { name: companyName, slug },
+    });
+    companySlugToId.set(slug, company.id);
+  }
+
+  // 3. Clear existing CompanyProblem links for these companies/timeframe to allow clean bulk insert of fresh scores
+  await prisma.companyProblem.deleteMany({
+    where: {
+      timeframe: 'all',
+      company: {
+        slug: { in: companySlugs }
+      }
+    }
+  });
+  console.log('Cleared existing company problems for fresh bulk import.');
+
+  const newProblemsMap = new Map<string, { title: string; difficulty: Difficulty; patternSlug: string }>();
+  const companyProblemsToCreate: Array<{ companySlug: string; normalizedUrl: string; frequencyScore: number }> = [];
+
+  for (const [companyName, folderName] of Object.entries(COMPANY_FOLDERS)) {
+    console.log(`Fetching CSV data for ${companyName}...`);
+    try {
+      const companySlug = companyName.toLowerCase().replace(/\s+/g, '-');
+      const csvUrl = `https://raw.githubusercontent.com/liquidslr/leetcode-company-wise-problems/main/${folderName}/5.%20All.csv`;
+      const response = await fetch(csvUrl);
+      if (!response.ok) {
+        console.warn(`Failed to fetch CSV for ${companyName}: ${response.statusText}`);
+        continue;
+      }
+
+      const csvText = await response.text();
+      const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+      if (lines.length <= 1) continue;
+
+      const header = parseCSVLine(lines[0]);
+      const diffIdx = header.findIndex(h => h.toLowerCase() === 'difficulty');
+      const titleIdx = header.findIndex(h => h.toLowerCase() === 'title');
+      const freqIdx = header.findIndex(h => h.toLowerCase() === 'frequency');
+      const linkIdx = header.findIndex(h => h.toLowerCase() === 'link');
+      const topicsIdx = header.findIndex(h => h.toLowerCase() === 'topics');
+
+      for (let i = 1; i < lines.length; i++) {
+        const columns = parseCSVLine(lines[i]);
+        if (columns.length < 5) continue;
+
+        const rawDifficulty = columns[diffIdx] || 'MEDIUM';
+        const title = columns[titleIdx];
+        const rawFrequency = parseFloat(columns[freqIdx] || '0');
+        const leetcodeUrl = columns[linkIdx];
+        const topicsStr = columns[topicsIdx] || '';
+
+        if (!title || !leetcodeUrl) continue;
+
+        const patternMapping = getPatternSlugForProblem(topicsStr);
+        if (!patternMapping) continue; // Filter
+
+        const normalizedUrl = normalizeUrl(leetcodeUrl);
+
+        // Queue CompanyProblem relation link
+        companyProblemsToCreate.push({
+          companySlug,
+          normalizedUrl,
+          frequencyScore: rawFrequency,
+        });
+
+        // Queue new Problem if it doesn't exist in either DB or newProblemsMap
+        if (!urlToIdMap.has(normalizedUrl) && !newProblemsMap.has(normalizedUrl)) {
+          let difficulty: Difficulty = Difficulty.MEDIUM;
+          const diffUpper = rawDifficulty.toUpperCase();
+          if (diffUpper === 'EASY') difficulty = Difficulty.EASY;
+          else if (diffUpper === 'HARD') difficulty = Difficulty.HARD;
+
+          newProblemsMap.set(normalizedUrl, {
+            title,
+            difficulty,
+            patternSlug: patternMapping.slug,
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error(`Error processing company ${companyName}:`, err.message);
+    }
+  }
+
+  // 4. Bulk Create New Problems
+  const newlyCreatedProblems: Array<{ title: string; topics: string; url: string; patternSlug: string }> = [];
+  if (newProblemsMap.size > 0) {
+    console.log(`Bulk creating ${newProblemsMap.size} new problems...`);
+    const problemsData = Array.from(newProblemsMap.entries()).map(([url, data]) => ({
+      title: data.title,
+      leetcodeUrl: url,
+      difficulty: data.difficulty,
+    }));
+
+    await prisma.problem.createMany({
+      data: problemsData,
+      skipDuplicates: true,
+    });
+
+    // Re-fetch all problems to get the newly generated IDs
+    existingProblems = await prisma.problem.findMany();
+    urlToIdMap.clear();
+    existingProblems.forEach((p) => {
+      urlToIdMap.set(normalizeUrl(p.leetcodeUrl), p.id);
+    });
+
+    // 5. Bulk Create ProblemPattern Relations
+    console.log('Bulk creating problem-pattern relations...');
+    const patternRelationsData: Array<{ problemId: string; patternId: string; isPrimary: boolean }> = [];
+    for (const [url, data] of newProblemsMap.entries()) {
+      const problemId = urlToIdMap.get(url);
+      const pattern = slugToPatternMap.get(data.patternSlug);
+      if (problemId && pattern) {
+        patternRelationsData.push({
+          problemId,
+          patternId: pattern.id,
+          isPrimary: true,
+        });
+
+        newlyCreatedProblems.push({
+          title: data.title,
+          topics: '', // We can leave empty or reconstruct
+          url,
+          patternSlug: data.patternSlug,
+        });
+      }
+    }
+
+    if (patternRelationsData.length > 0) {
+      await prisma.problemPattern.createMany({
+        data: patternRelationsData,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // 6. Bulk Create CompanyProblem Relations
+  if (companyProblemsToCreate.length > 0) {
+    console.log(`Bulk creating ${companyProblemsToCreate.length} company problem links...`);
+    
+    // Deduplicate company-problem combinations to prevent unique constraint failures
+    const uniqueCompanyProblems = new Map<string, { companyId: string; problemId: string; frequencyScore: number; timeframe: string }>();
+    
+    for (const cp of companyProblemsToCreate) {
+      const companyId = companySlugToId.get(cp.companySlug);
+      const problemId = urlToIdMap.get(cp.normalizedUrl);
+      if (companyId && problemId) {
+        const uniqueKey = `${companyId}_${problemId}_all`;
+        // Prefer higher frequency score if duplicate combination occurs
+        const existing = uniqueCompanyProblems.get(uniqueKey);
+        if (!existing || cp.frequencyScore > existing.frequencyScore) {
+          uniqueCompanyProblems.set(uniqueKey, {
+            companyId,
+            problemId,
+            frequencyScore: cp.frequencyScore,
+            timeframe: 'all',
+          });
+        }
+      }
+    }
+
+    const companyProblemsData = Array.from(uniqueCompanyProblems.values());
+    await prisma.companyProblem.createMany({
+      data: companyProblemsData,
+      skipDuplicates: true,
+    });
+  }
+
+  console.log('----------------------------------------------------');
+  console.log('Company and CompanyProblem Seeding Completed.');
+  console.log(`Total CompanyProblem links created/updated: ${companyProblemsToCreate.length}`);
+  console.log(`Total newly created problems: ${newProblemsMap.size}`);
+  console.log('----------------------------------------------------');
+  console.log('Sample of 5 newly created problems with their pattern slugs:');
+  const sample = newlyCreatedProblems.slice(0, 5);
+  sample.forEach((p, idx) => {
+    console.log(`${idx + 1}. [${p.title}]`);
+    console.log(`   URL: ${p.url}`);
+    console.log(`   Assigned Pattern Slug: ${p.patternSlug}`);
+  });
+  console.log('----------------------------------------------------');
   console.log('Database Seeding Completed.');
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function normalizeUrl(url: string): string {
+  let cleaned = url.trim();
+  if (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  return cleaned.toLowerCase();
+}
+
+function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'array' | 'linked-list' } | null {
+  const topics = topicsStr.split(',').map(t => t.trim());
+  const topicsLower = topics.map(t => t.toLowerCase());
+
+  const hasLinkedList = topicsLower.includes('linked list');
+  const hasArray = topicsLower.includes('array');
+
+  if (!hasLinkedList && !hasArray) {
+    return null; // Skip it!
+  }
+
+  // Priority rule: check Linked List first
+  if (hasLinkedList) {
+    if (topics.some(t => t === 'Two Pointers')) {
+      return { slug: 'fast-slow-pointer', group: 'linked-list' };
+    }
+    if (topics.some(t => t === 'Recursion')) {
+      return { slug: 'recursive-vs-iterative', group: 'linked-list' };
+    }
+    if (topics.some(t => t === 'Divide and Conquer')) {
+      return { slug: 'merge-sorted-lists', group: 'linked-list' };
+    }
+    if (topics.some(t => t === 'Hash Table')) {
+      return { slug: 'intersection-offset-pointers', group: 'linked-list' };
+    }
+    return { slug: 'fast-slow-pointer', group: 'linked-list' }; // Default fallback
+  }
+
+  if (hasArray) {
+    if (topics.some(t => t === 'Sliding Window')) {
+      return { slug: 'two-pointer', group: 'array' };
+    }
+    if (topics.some(t => t === 'Two Pointers')) {
+      return { slug: 'two-pointer', group: 'array' };
+    }
+    if (topics.some(t => t === 'Prefix Sum')) {
+      return { slug: 'prefix-sum-hashmap', group: 'array' };
+    }
+    if (topics.some(t => t === 'Hash Table')) {
+      return { slug: 'prefix-sum-hashmap', group: 'array' };
+    }
+    if (topics.some(t => t === 'Dynamic Programming')) {
+      return { slug: 'kadanes-algorithm', group: 'array' };
+    }
+    if (topics.some(t => t === 'Divide and Conquer')) {
+      return { slug: 'merge-sort-divide-conquer', group: 'array' };
+    }
+    if (topics.some(t => t === 'Sorting')) {
+      return { slug: 'sort-greedy', group: 'array' };
+    }
+    if (topics.some(t => t === 'Greedy')) {
+      return { slug: 'sort-greedy', group: 'array' };
+    }
+    if (topics.some(t => t === 'Bit Manipulation')) {
+      return { slug: 'xor-math-tricks', group: 'array' };
+    }
+    if (topics.some(t => t === 'Math')) {
+      return { slug: 'xor-math-tricks', group: 'array' };
+    }
+    if (topics.some(t => t === 'Matrix')) {
+      return { slug: 'matrix-simulation', group: 'array' };
+    }
+    if (topics.some(t => t === 'Monotonic Stack')) {
+      return { slug: 'monotonic-stack-queue', group: 'array' };
+    }
+    if (topics.some(t => t === 'Stack')) {
+      return { slug: 'monotonic-stack-queue', group: 'array' };
+    }
+    if (topics.some(t => t === 'Binary Search')) {
+      return { slug: 'binary-search-on-answer', group: 'array' };
+    }
+    return { slug: 'two-pointer', group: 'array' }; // Default fallback
+  }
+
+  return null;
 }
 
 main()
@@ -948,3 +1282,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

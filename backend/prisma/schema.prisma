@@ -59,6 +59,7 @@ model Problem {
   createdAt             DateTime         @default(now()) @map("created_at")
   patterns              ProblemPattern[]
   progress              UserProblemProgress[]
+  companies             CompanyProblem[]
 
   @@map("problems")
 }
@@ -108,3 +109,29 @@ enum ProgressStatus {
   SOLVED
   CONFIDENT
 }
+
+model Company {
+  id           String           @id @default(uuid())
+  name         String           @unique
+  slug         String           @unique
+  logoUrl      String?          @map("logo_url")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  problems     CompanyProblem[]
+
+  @@map("companies")
+}
+
+model CompanyProblem {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  problemId      String   @map("problem_id")
+  problem        Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  frequencyScore Float    @map("frequency_score")  // 0-100 from CSV
+  timeframe      String   @map("timeframe")          // "all", "6_months", "3_months", "30_days"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, problemId, timeframe])
+  @@map("company_problems")
+}
+

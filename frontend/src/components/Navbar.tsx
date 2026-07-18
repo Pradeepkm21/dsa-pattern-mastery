@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, LayoutDashboard, LogOut, Code, Menu, X } from 'lucide-react';
+import { BookOpen, LayoutDashboard, LogOut, Code, Menu, X, Building2 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -71,6 +71,13 @@ export const Navbar: React.FC = () => {
           <BookOpen className="w-4 h-4" />
           Pattern Library
         </Link>
+        <Link
+          to="/companies"
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${isActive('/companies')}`}
+        >
+          <Building2 className="w-4 h-4" />
+          Companies
+        </Link>
       </div>
 
       {/* Desktop User Info & Logout */}
@@ -118,6 +125,13 @@ export const Navbar: React.FC = () => {
             >
               <BookOpen className="w-5 h-5" />
               Pattern Library
+            </Link>
+            <Link
+              to="/companies"
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border transition-all ${isActive('/companies')}`}
+            >
+              <Building2 className="w-5 h-5" />
+              Companies
             </Link>
           </div>
 
