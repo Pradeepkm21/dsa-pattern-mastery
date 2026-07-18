@@ -495,7 +495,7 @@ export const ProblemDetail: React.FC = () => {
                         key={idx}
                         className="bg-red-500/5 border border-red-500/10 rounded-xl p-3 space-y-1.5"
                       >
-                        <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                        <p className="text-xs text-slate-200 leading-relaxed font-medium break-words">
                           {log.text}
                         </p>
                         <div className="text-[9px] text-slate-500 font-mono text-right">

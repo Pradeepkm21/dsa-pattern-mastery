@@ -133,8 +133,8 @@ export const Dashboard: React.FC = () => {
         {/* Top Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Progress Ring Card */}
-          <div className="glass-panel rounded-2xl p-6 flex items-center gap-6 shadow-xl">
-            <div className="relative w-24 h-24 flex items-center justify-center">
+          <div className="glass-panel rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 shadow-xl text-center sm:text-left">
+            <div className="relative w-24 h-24 flex items-center justify-center flex-shrink-0">
               <svg className="w-full h-full transform -rotate-90">
                 <circle
                   cx="48"
@@ -158,7 +158,7 @@ export const Dashboard: React.FC = () => {
               </svg>
               <span className="absolute text-xl font-bold font-outfit text-white">{solvedPercentage}%</span>
             </div>
-            <div>
+            <div className="flex flex-col justify-center min-h-[96px]">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Progress</h3>
               <div className="text-2xl font-bold text-white mt-1 font-outfit">
                 {stats?.solvedProblemsCount} / {stats?.totalProblemsCount}
@@ -295,7 +295,7 @@ export const Dashboard: React.FC = () => {
                           Reviewed: {prob.progress.reviewCount} times
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Link
                           to={`/problems/${prob.id}`}
                           className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 rounded-xl text-xs font-semibold transition-all"

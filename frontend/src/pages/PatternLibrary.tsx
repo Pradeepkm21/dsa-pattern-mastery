@@ -119,7 +119,7 @@ export const PatternLibrary: React.FC = () => {
 
         {/* Group Filter Tabs */}
         {groupsList.length > 1 && (
-          <div className="flex border-b border-white/5 gap-6 mb-8 overflow-x-auto scrollbar-none">
+          <div className="flex flex-nowrap border-b border-white/5 gap-6 mb-8 overflow-x-auto scrollbar-none touch-pan-x">
             {groupsList.map((group) => {
               const isActive = group.slug === activeGroupSlug;
               return (

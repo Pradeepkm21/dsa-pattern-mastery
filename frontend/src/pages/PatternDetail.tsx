@@ -194,14 +194,14 @@ export const PatternDetail: React.FC = () => {
             </div>
 
             {/* Code Skeleton */}
-            <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden shadow-xl">
+            <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden shadow-xl w-full max-w-full">
               <div className="bg-dark-900 border-b border-white/5 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Code className="w-4 h-4 text-brand-400" />
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Code Skeleton (TypeScript)</span>
                 </div>
               </div>
-              <pre className="bg-dark-900/40 p-6 overflow-x-auto font-mono text-xs text-slate-300 leading-relaxed">
+              <pre className="bg-dark-900/40 p-6 overflow-x-auto font-mono text-xs text-slate-300 leading-relaxed w-full max-w-full">
                 <code>{pattern.codeSkeleton}</code>
               </pre>
             </div>
