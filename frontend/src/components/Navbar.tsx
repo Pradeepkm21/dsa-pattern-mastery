@@ -103,7 +103,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Menu Dropdown Drawer */}
       {isOpen && (
-        <div className="absolute top-[73px] left-0 right-0 glass-panel border-b border-white/5 shadow-2xl p-6 md:hidden flex flex-col gap-6 z-50 bg-[#0B0F19]/95 backdrop-blur-md">
+        <div className="absolute top-[73px] left-0 right-0 border border-white/5 shadow-2xl p-6 md:hidden flex flex-col gap-6 z-50 bg-[#0B0F19] rounded-b-2xl">
           <div className="flex flex-col gap-2">
             <Link
               to="/"
