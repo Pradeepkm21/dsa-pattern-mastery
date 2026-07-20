@@ -21,7 +21,8 @@ const VALID_PATTERN_SLUGS = [
   'dummy-node-technique',
   'cycle-detection-start',
   'recursive-vs-iterative',
-  'intersection-offset-pointers'
+  'intersection-offset-pointers',
+  'sliding-window'
 ];
 
 const COMPANY_FOLDERS: { [key: string]: string } = {
@@ -98,7 +99,7 @@ function getPatternSlugForProblem(topicsStr: string): string | null {
   }
 
   if (hasArray) {
-    if (topics.some(t => t === 'Sliding Window')) return 'two-pointer';
+    if (topics.some(t => t === 'Sliding Window')) return 'sliding-window';
     if (topics.some(t => t === 'Two Pointers')) return 'two-pointer';
     if (topics.some(t => t === 'Prefix Sum')) return 'prefix-sum-hashmap';
     if (topics.some(t => t === 'Dynamic Programming') && topicsLower.includes('subarray')) return 'kadanes-algorithm';

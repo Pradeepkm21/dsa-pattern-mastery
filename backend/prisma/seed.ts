@@ -601,8 +601,37 @@ function minMeetingRooms(intervals: number[][]): number {
       timeComplexity: 'O(N + M)',
       spaceComplexity: 'O(1)',
       commonMistake: 'Failing to redirect to the opposite head when reaching null, or using pA.next instead of pA to check null (which prevents them from reaching null simultaneously to terminate when there is no intersection).',
-      comparisonNotes: 'This offset alignment is mathematically equivalent to the fast/slow loop alignment phase, aligning coordinates to eliminate starting offset differences.',
       displayOrder: 7,
+    },
+    {
+      name: 'Sliding Window',
+      slug: 'sliding-window',
+      groupSlug: 'array',
+      triggerCue: 'Recognition signals: "subarray", "contiguous", "maximum/minimum of subarray", "longest/shortest subarray satisfying condition", "window of size K". Critical constraint check: "are all elements non-negative?" → if yes, sliding window is safe; if negatives possible → use prefix sum + hashmap instead.',
+      coreIdea: 'Two pointers (left, right) define a window. Right pointer expands the window by moving forward. When the window violates the target condition, left pointer shrinks it. Track the optimal (max/min) window size during traversal. Fixed window: right - left + 1 == K always. Variable window: shrink until condition is restored.',
+      whyItWorks: '1. Monotonicity guarantee: In a non-negative array, adding an element to the window can only increase (or maintain) the sum, and removing an element can only decrease it. This one-directional property means when the sum exceeds the target, shrinking from the left is guaranteed to help — there is no need to check all possible windows.\n2. Negative numbers failure: Adding a negative element decreases the sum even as the window grows, so "sum > target" no longer means "shrinking left will fix it" — the shrink might make things worse. This is why sliding window requires non-negative values.\n3. O(n) Time Complexity: Each element is added to the window exactly once (when right passes it) and removed at most once (when left passes it). Total operations across the entire traversal are at most 2n, yielding O(n) regardless of how many times the inner loop runs.\n4. Fixed vs Variable: For fixed window (size K), left = right - K + 1 always, so no shrink condition is needed — just slide right and left together. For variable window, left only moves when the condition is violated, relying on the monotonicity guarantee.',
+      codeSkeleton: `// Fixed window (size K)
+left = 0, windowSum = 0, maxSum = 0
+for right in range(n):
+    windowSum += arr[right]
+    if right >= K - 1:
+        maxSum = max(maxSum, windowSum)
+        windowSum -= arr[left]
+        left++
+
+// Variable window (find longest/shortest satisfying condition)
+left = 0, windowSum = 0, result = 0
+for right in range(n):
+    windowSum += arr[right]
+    while windowSum > target:   // shrink condition
+        windowSum -= arr[left]
+        left++
+    result = max(result, right - left + 1)`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(1) for basic sum problems; O(k) when using a frequency map or deque (e.g. Minimum Window Substring, Sliding Window Maximum)',
+      commonMistake: '1. Using sliding window when negatives are present — the correct fallback is prefix sum + hashmap.\n2. For variable window, updating the result BEFORE shrinking the window rather than AFTER, which records an invalid window size.',
+      comparisonNotes: "Use Sliding Window over Two Pointer when the problem involves a contiguous subarray/window and the answer is about the window's aggregate property (sum, max, count). Use Two Pointer when the problem involves finding pairs/triplets or operating on sorted arrays from both ends. Both are O(n)/O(1) — the choice is about problem structure, not efficiency.",
+      displayOrder: 13,
     },
   ];
 
@@ -733,6 +762,10 @@ function minMeetingRooms(intervals: number[][]): number {
     { id: 'p73', title: 'Reverse Nodes in k-Group', leetcodeUrl: 'https://leetcode.com/problems/reverse-nodes-in-k-group/', leetcodeProblemNumber: 25, difficulty: Difficulty.HARD, descriptionShort: 'Reverse nodes of a linked list k at a time.' },
     { id: 'p74', title: 'Intersection of Two Linked Lists', leetcodeUrl: 'https://leetcode.com/problems/intersection-of-two-linked-lists/', leetcodeProblemNumber: 160, difficulty: Difficulty.EASY, descriptionShort: 'Find the node at which the intersection of two singly linked lists begins.' },
     { id: 'p75', title: 'Lowest Common Ancestor of a Binary Tree III', leetcodeUrl: 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree-iii/', leetcodeProblemNumber: 1650, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the lowest common ancestor of two nodes in a binary tree where each node has a parent pointer.' },
+    { id: 'p76', title: 'Maximum Sum Subarray of Size K', leetcodeUrl: 'https://leetcode.com/problems/maximum-average-subarray-i/', leetcodeProblemNumber: 643, difficulty: Difficulty.EASY, descriptionShort: 'Find the maximum sum of any contiguous subarray of size K. Classic fixed-window introduction.' },
+    { id: 'p77', title: 'Longest Subarray with Sum K', leetcodeUrl: 'https://leetcode.com/problems/longest-subarray-with-sum-k/', leetcodeProblemNumber: null, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the length of the longest subarray with sum equal to K.' },
+    { id: 'p78', title: 'Longest Substring Without Repeating Characters', leetcodeUrl: 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', leetcodeProblemNumber: 3, difficulty: Difficulty.MEDIUM, descriptionShort: 'Variable window — expand right, shrink left when a duplicate character enters the window. Uses a HashSet or frequency map.' },
+    { id: 'p79', title: 'Minimum Window Substring', leetcodeUrl: 'https://leetcode.com/problems/minimum-window-substring/', leetcodeProblemNumber: 76, difficulty: Difficulty.HARD, descriptionShort: 'Find the smallest window in s containing all characters of t. Variable window with two frequency maps and a "valid" counter — the hardest standard sliding window problem.' },
   ];
 
   const dbProblems: { [key: string]: string } = {};
@@ -815,7 +848,7 @@ function minMeetingRooms(intervals: number[][]): number {
     // 9. Monotonic Stack
     { problemId: 'p27', patternSlug: 'monotonic-stack-queue', isPrimary: true }, // Next Greater
     { problemId: 'p28', patternSlug: 'monotonic-stack-queue', isPrimary: true }, // Histogram
-    { problemId: 'p29', patternSlug: 'monotonic-stack-queue', isPrimary: true }, // Sliding Window Max
+    { problemId: 'p29', patternSlug: 'monotonic-stack-queue', isPrimary: false }, // Sliding Window Max (Secondary)
 
     // 10. Cyclic Sort
     { problemId: 'p16', patternSlug: 'cyclic-sort', isPrimary: false }, // Missing Number (Secondary)
@@ -894,6 +927,14 @@ function minMeetingRooms(intervals: number[][]): number {
     { problemId: 'p74', patternSlug: 'intersection-offset-pointers', isPrimary: true }, // Intersection of Two Linked Lists
     { problemId: 'p75', patternSlug: 'intersection-offset-pointers', isPrimary: true }, // LCA of Binary Tree III
     { problemId: 'p71', patternSlug: 'intersection-offset-pointers', isPrimary: false }, // Linked List Cycle II (Reused - Secondary link)
+
+    // === SLIDING WINDOW MAPPINGS ===
+    { problemId: 'p76', patternSlug: 'sliding-window', isPrimary: true }, // Maximum Sum Subarray (Primary)
+    { problemId: 'p77', patternSlug: 'sliding-window', isPrimary: false }, // Longest Subarray with Sum K (Secondary)
+    { problemId: 'p77', patternSlug: 'two-pointer', isPrimary: true }, // Longest Subarray with Sum K (Primary)
+    { problemId: 'p78', patternSlug: 'sliding-window', isPrimary: true }, // Longest Substring Without Repeating Characters (Primary)
+    { problemId: 'p79', patternSlug: 'sliding-window', isPrimary: true }, // Minimum Window Substring (Primary)
+    { problemId: 'p29', patternSlug: 'sliding-window', isPrimary: true }, // Sliding Window Max (Primary)
   ];
 
   for (const rel of problemPatternsRelations) {
@@ -1283,7 +1324,7 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
 
   if (hasArray) {
     if (topics.some(t => t === 'Sliding Window')) {
-      return { slug: 'two-pointer', group: 'array' };
+      return { slug: 'sliding-window', group: 'array' };
     }
     if (topics.some(t => t === 'Two Pointers')) {
       return { slug: 'two-pointer', group: 'array' };
