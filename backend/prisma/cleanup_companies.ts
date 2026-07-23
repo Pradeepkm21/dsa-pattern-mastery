@@ -22,7 +22,16 @@ const VALID_PATTERN_SLUGS = [
   'cycle-detection-start',
   'recursive-vs-iterative',
   'intersection-offset-pointers',
-  'sliding-window'
+  'sliding-window',
+  'bfs-shortest-path',
+  'dfs-traversal',
+  'topological-sort',
+  'union-find',
+  'dijkstra-shortest-path',
+  'bipartite-check',
+  'island-grid-traversal',
+  'bellman-ford',
+  'minimum-spanning-tree'
 ];
 
 const COMPANY_FOLDERS: { [key: string]: string } = {
@@ -85,8 +94,15 @@ function getPatternSlugForProblem(topicsStr: string): string | null {
 
   const hasLinkedList = topicsLower.includes('linked list');
   const hasArray = topicsLower.includes('array');
+  const hasGraph = topicsLower.includes('graph') || 
+                    topicsLower.includes('breadth-first search') || 
+                    topicsLower.includes('depth-first search') || 
+                    topicsLower.includes('union find') || 
+                    topicsLower.includes('minimum spanning tree') || 
+                    topicsLower.includes('topological sort') || 
+                    topicsLower.includes('bipartite');
 
-  if (!hasLinkedList && !hasArray) {
+  if (!hasLinkedList && !hasArray && !hasGraph) {
     return null;
   }
 
@@ -111,6 +127,34 @@ function getPatternSlugForProblem(topicsStr: string): string | null {
     if (topics.some(t => t === 'Monotonic Stack')) return 'monotonic-stack-queue';
     if (topics.some(t => t === 'Stack')) return 'monotonic-stack-queue';
     if (topics.some(t => t === 'Binary Search')) return 'binary-search-on-answer';
+    return null;
+  }
+
+  if (hasGraph) {
+    if (topicsLower.includes('union find') || topicsLower.includes('disjoint set')) {
+      return 'union-find';
+    }
+    if (topicsLower.includes('topological sort')) {
+      return 'topological-sort';
+    }
+    if (topicsLower.includes('minimum spanning tree')) {
+      return 'minimum-spanning-tree';
+    }
+    if (topicsLower.includes('bipartite')) {
+      return 'bipartite-check';
+    }
+    if (topicsLower.includes('shortest path') || topicsLower.includes('dijkstra')) {
+      return 'dijkstra-shortest-path';
+    }
+    if (topicsLower.includes('breadth-first search')) {
+      return 'bfs-shortest-path';
+    }
+    if (topicsLower.includes('depth-first search')) {
+      return 'dfs-traversal';
+    }
+    if (topicsLower.includes('matrix') || topicsLower.includes('grid')) {
+      return 'island-grid-traversal';
+    }
     return null;
   }
 

@@ -57,7 +57,31 @@ async function main() {
     });
   }
 
-  // 3. Create Patterns (Array + Linked List)
+  // 2b. Upsert Graph Pattern Group
+  let graphGroup = await prisma.patternGroup.findUnique({
+    where: { slug: 'graph' },
+  });
+  if (!graphGroup) {
+    graphGroup = await prisma.patternGroup.create({
+      data: {
+        name: 'Graph',
+        slug: 'graph',
+        description: 'Graph traversal, shortest path, connectivity, and optimization patterns for interview preparation',
+        displayOrder: 3,
+      },
+    });
+  } else {
+    graphGroup = await prisma.patternGroup.update({
+      where: { slug: 'graph' },
+      data: {
+        name: 'Graph',
+        description: 'Graph traversal, shortest path, connectivity, and optimization patterns for interview preparation',
+        displayOrder: 3,
+      },
+    });
+  }
+
+  // 3. Create Patterns (Array + Linked List + Graph)
   const patternsData = [
     // --- ARRAY PATTERNS ---
     {
@@ -633,12 +657,541 @@ for right in range(n):
       comparisonNotes: "Use Sliding Window over Two Pointer when the problem involves a contiguous subarray/window and the answer is about the window's aggregate property (sum, max, count). Use Two Pointer when the problem involves finding pairs/triplets or operating on sorted arrays from both ends. Both are O(n)/O(1) — the choice is about problem structure, not efficiency.",
       displayOrder: 13,
     },
+    // --- GRAPH PATTERNS ---
+    {
+      name: 'Breadth-First Search (BFS)',
+      slug: 'bfs-shortest-path',
+      groupSlug: 'graph',
+      triggerCue: 'Shortest path in unweighted graph; minimum steps/moves to reach target state; level-by-level traversal of nodes; nearest/closest node queries; or multi-source shortest distance computation. Key question: Is the graph unweighted or are all edge weights equal? If yes -> BFS; if weighted -> Dijkstra\'s.',
+      coreIdea: 'Utilize a FIFO queue. Enqueue the starting source node(s) and track their visited state. At each step, dequeue the current node, explore all its unvisited neighbors, record their distances, mark them visited immediately on enqueue to prevent duplicate entries, and push them to the queue.',
+      whyItWorks: '1. Why BFS guarantees shortest path in unweighted graphs: Nodes are processed in strictly non-decreasing order of distance from the source. The first time a node is dequeued, it is guaranteed to have been reached via the shortest path; any subsequent path to it must contain at least as many or more edges. (Proof by contradiction: If a shorter path existed, the intermediate nodes on that path would have been enqueued earlier, meaning the node would have been dequeued and finalized sooner).\n2. Why this guarantee breaks in weighted graphs: With varying edge weights, "processed first" (fewest hops) no longer implies "reached via shortest total distance". A path with more edges and smaller weights can be shorter than a path with fewer edges and larger weights. This is why Dijkstra\'s uses a priority queue instead of a FIFO queue.\n3. Why multi-source BFS works: Enqueuing multiple sources simultaneously at distance 0 is mathematically equivalent to introducing a virtual super-source node connected to all real sources via directed edges of weight 0. Running a standard BFS from this virtual node yields the correct shortest distance to the nearest real source for all other vertices.',
+      codeSkeleton: `// Single-Source BFS
+function bfsSingleSource(adjList: Map<number, number[]>, start: number): Map<number, number> {
+  const queue: number[] = [start];
+  const dist = new Map<number, number>();
+  dist.set(start, 0);
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const currentDist = dist.get(node)!;
+    
+    for (const neighbor of adjList.get(node) || []) {
+      if (!dist.has(neighbor)) {
+        dist.set(neighbor, currentDist + 1);
+        queue.push(neighbor); // Marked visited immediately on enqueue
+      }
+    }
+  }
+  return dist;
+}
+
+// Multi-Source BFS
+function bfsMultiSource(adjList: Map<number, number[]>, sources: number[]): Map<number, number> {
+  const queue: number[] = [...sources];
+  const dist = new Map<number, number>();
+  for (const src of sources) {
+    dist.set(src, 0); // Initialize all sources at distance 0
+  }
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const currentDist = dist.get(node)!;
+
+    for (const neighbor of adjList.get(node) || []) {
+      if (!dist.has(neighbor)) {
+        dist.set(neighbor, currentDist + 1);
+        queue.push(neighbor);
+      }
+    }
+  }
+  return dist;
+}`,
+      timeComplexity: 'O(V + E)',
+      spaceComplexity: 'O(V)',
+      commonMistake: 'Failing to mark nodes as visited immediately upon enqueuing (doing it instead when dequeuing). This allows the same node to be enqueued multiple times from different paths, degrading the time complexity from O(V+E) to O(V*E) and potentially causing memory exhaustion.',
+      comparisonNotes: 'Use BFS for finding shortest paths in unweighted graphs or grids. Use DFS for connectivity, cycle detection, or topological sorting. Use Dijkstra\'s for finding shortest paths in graphs with non-negative weights.',
+      displayOrder: 1,
+    },
+    {
+      name: 'Depth-First Search (DFS)',
+      slug: 'dfs-traversal',
+      groupSlug: 'graph',
+      triggerCue: 'Connected components count; verification of path existence between two nodes; cycle detection (directed or undirected); all-paths exploration; or full component traversals. Key distinction: DFS goes deep before wide. Use DFS when you need to exhaustively explore entire paths, and BFS when you need shortest paths.',
+      coreIdea: 'Use recursion (implied system stack) or an explicit LIFO stack. Mark the current node as visited, recursively traverse all its unvisited neighbors, and backtrack when no unvisited neighbors remain.',
+      whyItWorks: '1. Why DFS correctly finds all connected components: By induction, any node reachable from the start vertex will eventually be visited because DFS recursively explores every adjacent neighbor. Backtracking only occurs when all neighbors are exhausted, ensuring no reachable node is left unvisited unless it was already processed.\n2. Why DFS cycle detection in directed graphs requires a recursion stack ("in-stack") set vs a simple "visited" set: A node in the general "visited" set was seen in some path but might belong to a completed, independent subtree (cross edge). A node in the "in-stack" set is active in the current recursion path. Encountering an adjacent neighbor that is currently "in-stack" indicates a back-edge, proving the existence of a cycle. General "visited" sets alone are insufficient and will yield false positives.\n3. Why DFS time complexity is O(V+E): Each vertex is pushed to the recursion stack exactly once (O(V)), and each edge is examined exactly once from each endpoint (O(E)).',
+      codeSkeleton: `// Recursive DFS
+function dfsRecursive(adjList: Map<number, number[]>, start: number) {
+  const visited = new Set<number>();
+  function traverse(node: number) {
+    visited.add(node);
+    for (const neighbor of adjList.get(node) || []) {
+      if (!visited.has(neighbor)) {
+        traverse(neighbor);
+      }
+    }
+  }
+  traverse(start);
+}
+
+// Iterative DFS (explicit stack)
+function dfsIterative(adjList: Map<number, number[]>, start: number) {
+  const stack: number[] = [start];
+  const visited = new Set<number>();
+  visited.add(start);
+
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    for (const neighbor of adjList.get(node) || []) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        stack.push(neighbor);
+      }
+    }
+  }
+}
+
+// Directed Graph Cycle Detection (using Recursion Stack)
+function hasCycleDirected(adjList: Map<number, number[]>, V: number): boolean {
+  const visited = new Set<number>();
+  const inStack = new Set<number>();
+
+  function dfs(node: number): boolean {
+    visited.add(node);
+    inStack.add(node);
+
+    for (const neighbor of adjList.get(node) || []) {
+      if (inStack.has(neighbor)) {
+        return true; // Found a back edge!
+      }
+      if (!visited.has(neighbor)) {
+        if (dfs(neighbor)) return true;
+      }
+    }
+    inStack.delete(node); // Backtrack
+    return false;
+  }
+
+  for (let i = 0; i < V; i++) {
+    if (!visited.has(i)) {
+      if (dfs(i)) return true;
+    }
+  }
+  return false;
+}`,
+      timeComplexity: 'O(V + E)',
+      spaceComplexity: 'O(V) for the recursion stack',
+      commonMistake: 'Using only a general visited set instead of an active recursion stack set for cycle detection in directed graphs, which incorrectly identifies cross-edges as cycles.',
+      comparisonNotes: 'Use DFS for exhaustive path-finding, topological sorting, and cycle detection. Use BFS for shortest path problems on unweighted graphs.',
+      displayOrder: 2,
+    },
+    {
+      name: 'Topological Sort',
+      slug: 'topological-sort',
+      groupSlug: 'graph',
+      triggerCue: 'Ordering problems with dependencies; course prerequisite structures; task scheduling; build order systems; or any "if A must precede B" condition. Only applicable to Directed Acyclic Graphs (DAGs). If a cycle is present, a topological sort is impossible.',
+      coreIdea: 'Two standard formulations: (1) Kahn\'s Algorithm (BFS-based): Compute in-degrees for all nodes, enqueue nodes with in-degree 0. While the queue is not empty, dequeue a node, add it to the ordering, decrement its neighbors\' in-degrees, and enqueue any neighbor whose in-degree becomes 0. (2) DFS-based: Execute DFS, and push a node onto a stack AFTER all its neighbors are fully processed (post-order). Reversing the final stack yields the topological order.',
+      whyItWorks: '1. Why Kahn\'s algorithm produces a valid topological order: A node with an in-degree of 0 has no prerequisites, making it safe to schedule first. Once scheduled, removing it reduces the prerequisite counts of its neighbors. Any neighbor whose in-degree falls to 0 has had all its prerequisites met. By induction, every node is scheduled only after its dependencies.\n2. Why Kahn\'s detects cycles: In a graph with a cycle, the nodes within the cycle will never reach an in-degree of 0 because each depends on another node inside the cycle. Consequently, the queue will empty before processing all V vertices. If the final ordered list length is less than V, a cycle exists.\n3. Why DFS post-order gives a reverse topological order: If there is a dependency edge from A to B, DFS will visit and fully process B (and all its descendants) before backtracking to complete A. Thus, B is pushed onto the stack before A. When we reverse the stack, A is guaranteed to appear before B, satisfying the dependency.',
+      codeSkeleton: `// Kahn's Algorithm (BFS-based)
+function kahnsTopologicalSort(V: number, adjList: Map<number, number[]>): number[] {
+  const inDegree = new Array(V).fill(0);
+  for (const [u, neighbors] of adjList.entries()) {
+    for (const v of neighbors) {
+      inDegree[v]++;
+    }
+  }
+
+  const queue: number[] = [];
+  for (let i = 0; i < V; i++) {
+    if (inDegree[i] === 0) queue.push(i);
+  }
+
+  const order: number[] = [];
+  while (queue.length > 0) {
+    const u = queue.shift()!;
+    order.push(u);
+
+    for (const v of adjList.get(u) || []) {
+      inDegree[v]--;
+      if (inDegree[v] === 0) {
+        queue.push(v);
+      }
+    }
+  }
+
+  // If order.length !== V, there is a cycle!
+  return order.length === V ? order : [];
+}
+
+// DFS-based Topological Sort
+function dfsTopologicalSort(V: number, adjList: Map<number, number[]>): number[] {
+  const visited = new Set<number>();
+  const stack: number[] = [];
+
+  function dfs(u: number) {
+    visited.add(u);
+    for (const v of adjList.get(u) || []) {
+      if (!visited.has(v)) {
+        dfs(v);
+      }
+    }
+    stack.push(u); // Post-order: push after processing all neighbors
+  }
+
+  for (let i = 0; i < V; i++) {
+    if (!visited.has(i)) {
+      dfs(i);
+    }
+  }
+
+  return stack.reverse(); // Reverse stack for topological order
+}`,
+      timeComplexity: 'O(V + E)',
+      spaceComplexity: 'O(V)',
+      commonMistake: 'Failing to check if the length of the processed nodes equals V when using Kahn\'s algorithm on inputs that might contain cycles, resulting in an incomplete and invalid topological sort.',
+      comparisonNotes: 'Kahn\'s algorithm is preferred when cycle detection is needed as part of the scheduling process. DFS-based is more concise for pure ordering of known DAGs.',
+      displayOrder: 3,
+    },
+    {
+      name: 'Union-Find (Disjoint Set Union)',
+      slug: 'union-find',
+      groupSlug: 'graph',
+      triggerCue: 'Connected components; dynamic connectivity; detecting cycles in undirected graphs; minimum spanning tree (Kruskal\'s); or merging groups/clusters dynamically. Key signal: Repeated union (merging) and find (identifying group representative) queries.',
+      coreIdea: 'Maintain parent pointers for elements. Representative elements are roots (parent[x] == x). `find(x)` follows pointers to the root. `union(x, y)` merges the roots of two elements. Implement path compression (point traversed nodes directly to root) and union by rank (attach shorter tree under taller tree) to keep the trees flat.',
+      whyItWorks: '1. Why path compression works: In `find(x)`, setting the parent of all traversed nodes directly to the root shortens the tree depth for future searches. This preserves component membership while reducing subsequent `find` operations to O(1) complexity.\n2. Why union by rank prevents degenerate chains: Attaching the root of the tree with smaller depth (rank) to the root of the larger tree ensures tree height does not grow unless two trees of equal rank are merged. This bounds the maximum height of the tree to O(log V) even without path compression.\n3. Why the combination achieves near-O(1) amortized: Combining path compression and union by rank reduces the amortized time complexity per query to O(α(V)), where α is the inverse Ackermann function (which grows so slowly that α(V) <= 4 for all practical inputs). This is effectively O(1) in practice (proved formally using potential functions).\n4. Why Union-Find detects cycles in undirected graphs: Before merging two vertices u and v, we check if `find(u) === find(v)`. If they share a root, they already belong to the same connected component. Adding the edge (u, v) would create an alternative path, which implies a cycle.',
+      codeSkeleton: `class UnionFind {
+  private parent: number[];
+  private rank: number[];
+
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+    this.rank = new Array(n).fill(0);
+  }
+
+  find(x: number): number {
+    if (this.parent[x] !== x) {
+      this.parent[x] = this.find(this.parent[x]); // Path compression
+    }
+    return this.parent[x];
+  }
+
+  union(x: number, y: number): boolean {
+    const rootX = this.find(x);
+    const rootY = this.find(y);
+
+    if (rootX === rootY) {
+      return false; // Already in the same set (cycle detected if adding edge)
+    }
+
+    // Union by rank
+    if (this.rank[rootX] < this.rank[rootY]) {
+      this.parent[rootX] = rootY;
+    } else if (this.rank[rootX] > this.rank[rootY]) {
+      this.parent[rootY] = rootX;
+    } else {
+      this.parent[rootY] = rootX;
+      this.rank[rootX]++;
+    }
+    return true;
+  }
+}`,
+      timeComplexity: 'O(α(V)) per operation, effectively O(1)',
+      spaceComplexity: 'O(V)',
+      commonMistake: 'Omitting union by rank and only implementing path compression. Without rank optimizations, a sequence of skewed unions can still degrade the tree structure to a chain of height O(V).',
+      comparisonNotes: 'Use Union-Find for dynamic connectivity and cycle detection in undirected graphs. Use DFS/BFS for static connectivity. Use Kahn\'s for cycle detection in directed graphs.',
+      displayOrder: 4,
+    },
+    {
+      name: 'Dijkstra\'s Shortest Path',
+      slug: 'dijkstra-shortest-path',
+      groupSlug: 'graph',
+      triggerCue: 'Shortest path in weighted graph; minimum cost path; all edge weights non-negative. Non-negotiable constraint: edge weights must be non-negative. If negative weights are present, Dijkstra\'s is invalid; use Bellman-Ford instead.',
+      coreIdea: 'Maintain a min-priority queue storing pairs of `(distance, node)` and a `dist` array initialized to infinity. Start with source at distance 0. Greedily extract the node with the minimum current distance. For each neighbor, if `dist[u] + weight(u, v) < dist[v]`, update `dist[v]` and enqueue the neighbor with the new distance.',
+      whyItWorks: '1. Why the greedy choice is safe (no negative weights): When a node u is extracted from the min-heap, its distance `dist[u]` is finalized. Because all edge weights are non-negative, any alternative path from the source to u through unvisited nodes must go through some node v currently in the frontier, where `dist[v] >= dist[u]`. Since weights are non-negative, the total distance of this alternative path must be `>= dist[v] >= dist[u]`. Hence, the current distance is optimal.\n2. Why negative edges break Dijkstra\'s: A negative weight edge can make a path through a "further" node shorter than the currently finalized "closest" path. Because Dijkstra\'s does not reprocess finalized nodes, it will miss the shorter path through the negative edge.\n3. Why lazy deletion (stale heap entries) is correct: Instead of updating priorities inside the heap (which is slow), we allow duplicate entries for the same node in the PQ. When a node is popped, if its recorded distance is greater than the current known minimum (`d > dist[u]`), we simply skip it because it represents a stale, suboptimal path.',
+      codeSkeleton: `interface Edge {
+  node: number;
+  weight: number;
+}
+
+class MinPriorityQueue<T> {
+  private data: { priority: number; value: T }[] = [];
+
+  enqueue(value: T, priority: number) {
+    this.data.push({ value, priority });
+    this.data.sort((a, b) => a.priority - b.priority); // Simple sort for skeleton purposes
+  }
+
+  dequeue(): { priority: number; value: T } | undefined {
+    return this.data.shift();
+  }
+
+  size(): number {
+    return this.data.length;
+  }
+}
+
+function dijkstra(V: number, adjList: Map<number, Edge[]>, src: number): number[] {
+  const dist = new Array(V).fill(Infinity);
+  dist[src] = 0;
+
+  const pq = new MinPriorityQueue<number>();
+  pq.enqueue(src, 0);
+
+  const visited = new Set<number>();
+
+  while (pq.size() > 0) {
+    const { value: u, priority: d } = pq.dequeue()!;
+
+    if (visited.has(u)) continue; // Lazy deletion
+    visited.add(u);
+
+    for (const edge of adjList.get(u) || []) {
+      const v = edge.node;
+      const weight = edge.weight;
+
+      if (dist[u] + weight < dist[v]) {
+        dist[v] = dist[u] + weight;
+        pq.enqueue(v, dist[v]);
+      }
+    }
+  }
+
+  return dist;
+}`,
+      timeComplexity: 'O((V + E) log V) with binary heap',
+      spaceComplexity: 'O(V + E)',
+      commonMistake: 'Failing to check for the presence of negative edge weights before applying Dijkstra\'s, or not incorporating a visited check to skip stale popped entries, leading to O(E log V) redundant iterations.',
+      comparisonNotes: 'Use Dijkstra\'s for shortest paths in non-negative weighted graphs. Use Bellman-Ford if negative weights exist. Use BFS for unweighted graphs.',
+      displayOrder: 5,
+    },
+    {
+      name: 'Bipartite Check / Graph Coloring',
+      slug: 'bipartite-check',
+      groupSlug: 'graph',
+      triggerCue: 'Divide nodes into two groups; check if a graph is bipartite; can nodes be colored using 2 colors; no adjacent nodes share the same color; or conflict detection in scheduling. Key theorem: A graph is bipartite if and only if it contains no odd-length cycles.',
+      coreIdea: 'Perform BFS or DFS. Assign color 0 to the source node, color 1 to all its neighbors, color 0 to their neighbors, and so on. If we attempt to color a neighbor that has already been colored, and its color matches the current node\'s color, the graph contains an odd-length cycle and is not bipartite.',
+      whyItWorks: '1. Why 2-coloring detects bipartiteness: A graph is bipartite if we can partition its vertices into two independent sets such that all edges cross between the sets. BFS-based 2-coloring assigns alternating colors layer by layer. If an odd-length cycle exists, it will eventually force two adjacent nodes to be assigned the same color, generating a conflict that is detected during neighbor validation.\n2. Why we must run BFS/DFS from every unvisited node: A graph may consist of multiple disconnected components. Running the traversal from a single source only checks the reachable component; we must check all components independently to guarantee the entire graph is bipartite.',
+      codeSkeleton: `function isBipartite(V: number, adjList: Map<number, number[]>): boolean {
+  const colors = new Array(V).fill(-1); // -1: uncolored, 0: Color A, 1: Color B
+
+  for (let i = 0; i < V; i++) {
+    if (colors[i] !== -1) continue; // Already colored
+
+    const queue: number[] = [i];
+    colors[i] = 0;
+
+    while (queue.length > 0) {
+      const u = queue.shift()!;
+
+      for (const v of adjList.get(u) || []) {
+        if (colors[v] === -1) {
+          colors[v] = 1 - colors[u]; // Alternate color
+          queue.push(v);
+        } else if (colors[v] === colors[u]) {
+          return false; // Odd cycle conflict
+        }
+      }
+    }
+  }
+
+  return true;
+}`,
+      timeComplexity: 'O(V + E)',
+      spaceComplexity: 'O(V)',
+      commonMistake: 'Only starting the bipartite check from node 0 and forgetting to loop through all nodes from 0 to V-1, which fails to detect odd cycles in disconnected components.',
+      comparisonNotes: 'Bipartite check is a special case of graph coloring (k=2). For k > 2, graph coloring is an NP-hard problem.',
+      displayOrder: 6,
+    },
+    {
+      name: 'Island / Grid Traversal',
+      slug: 'island-grid-traversal',
+      groupSlug: 'graph',
+      triggerCue: 'Grid-based traversals; 2D matrix paths; island counting; connected region tracking; flood fill; computing sizes of connected grid areas; or surrounded region capturing. Key model: Cells are nodes, and adjacent cells are implicit edges.',
+      coreIdea: 'Perform BFS or DFS on a 2D grid. Iterate through each cell. When an unvisited land cell is found, run a traversal to visit all reachable adjacent land cells (moving in 4 or 8 directions). Mark cells visited either by mutating the grid value in-place (e.g., changing land \'1\' to water \'0\') or by using a 2D boolean visited array.',
+      whyItWorks: '1. Why grid traversal maps to graph traversal: A grid is an implicit graph. Cells represent vertices, and edge relations are dynamically resolved using coordinate shifts (e.g., `[(0,1),(0,-1),(1,0),(-1,0)]`). This avoids building an explicit adjacency list.\n2. Why in-place marking is correct: Modifying a cell value directly in the grid (e.g. flipping \'1\' to \'0\') acts as a visited flag. Since the cell no longer matches the traversal condition, it will never be enqueued or processed again, saving O(R * C) auxiliary space.\n3. Why multi-source BFS is optimal for distance fields: Enqueuing all target cells simultaneously at distance 0 and propagating outward computes the minimum distance to the nearest target cell for all grid locations in a single O(R * C) pass. Running separate BFS operations from each source individually would take O(S * R * C) time, which is highly redundant.',
+      codeSkeleton: `// DFS Variant (Recursive)
+function dfsGrid(grid: string[][], r: number, c: number) {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  
+  if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] !== '1') {
+    return;
+  }
+  
+  grid[r][c] = '0'; // Mark visited in-place
+  
+  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  for (const [dr, dc] of dirs) {
+    dfsGrid(grid, r + dr, c + dc);
+  }
+}
+
+// Multi-Source BFS on Grid
+function bfsGridMultiSource(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const dist = Array.from({ length: rows }, () => new Array(cols).fill(Infinity));
+  const queue: [number, number][] = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c] === 0) {
+        dist[r][c] = 0;
+        queue.push([r, c]); // Enqueue all sources at distance 0
+      }
+    }
+  }
+
+  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  while (queue.length > 0) {
+    const [r, c] = queue.shift()!;
+
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr;
+      const nc = c + dc;
+
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+        if (dist[r][c] + 1 < dist[nr][nc]) {
+          dist[nr][nc] = dist[r][c] + 1;
+          queue.push([nr, nc]);
+        }
+      }
+    }
+  }
+  return dist;
+}`,
+      timeComplexity: 'O(m * n) where m and n are the grid dimensions',
+      spaceComplexity: 'O(m * n) for the visited array or recursion stack; O(1) auxiliary if mutating in-place',
+      commonMistake: 'Failing to validate boundary bounds (0 <= r < rows and 0 <= c < cols) before performing array accesses, leading to index out of bounds exceptions.',
+      comparisonNotes: 'Use DFS for simple connectivity counts and region marking. Use BFS for shortest path or step-count searches in a grid. Use multi-source BFS for nearest-distance matrix generations.',
+      displayOrder: 7,
+    },
+    {
+      name: 'Bellman-Ford',
+      slug: 'bellman-ford',
+      groupSlug: 'graph',
+      triggerCue: 'Shortest path in weighted graph where negative edge weights may exist; negative cycle detection; or constraint propagation. Use this when Dijkstra\'s is disqualified due to negative edge weights.',
+      coreIdea: 'Initialize distances to infinity (source to 0). Relax all E edges V-1 times. To detect negative cycles, perform one additional (V-th) relaxation pass. If any distance is updated during this V-th pass, a negative cycle exists.',
+      whyItWorks: '1. Why V-1 iterations are sufficient: In a graph with V vertices, the shortest simple path between any two vertices can contain at most V-1 edges. Each iteration of the relaxation loop is guaranteed to find the shortest path of length at most k edges (where k is the iteration count). Thus, after V-1 passes, all shortest paths are finalized unless negative cycles are present.\n2. Why the V-th iteration detects negative cycles: If a node\'s distance can still be decreased after V-1 relaxations, there must exist a path of length >= V edges that is shorter than any path of length < V. This is only possible if the path contains a cycle whose sum of edge weights is negative, allowing infinite distance reductions by traversing it recursively.\n3. Why Bellman-Ford runs in O(VE) time: Because the algorithm does not rely on greedy selection or priority queues, it must relax every single edge globally in each iteration. This results in V-1 passes * E edges = O(VE) runtime.',
+      codeSkeleton: `interface EdgeListRepresentation {
+  u: number;
+  v: number;
+  weight: number;
+}
+
+function bellmanFord(V: number, edges: EdgeListRepresentation[], src: number): { dist: number[]; hasNegativeCycle: boolean } {
+  const dist = new Array(V).fill(Infinity);
+  dist[src] = 0;
+
+  // Relax all edges V - 1 times
+  for (let i = 1; i <= V - 1; i++) {
+    for (const { u, v, weight } of edges) {
+      if (dist[u] !== Infinity && dist[u] + weight < dist[v]) {
+        dist[v] = dist[u] + weight;
+      }
+    }
+  }
+
+  // V-th iteration to detect negative cycles
+  let hasNegativeCycle = false;
+  for (const { u, v, weight } of edges) {
+    if (dist[u] !== Infinity && dist[u] + weight < dist[v]) {
+      hasNegativeCycle = true;
+      break;
+    }
+  }
+
+  return { dist, hasNegativeCycle };
+}`,
+      timeComplexity: 'O(V * E)',
+      spaceComplexity: 'O(V)',
+      commonMistake: 'Omitting the V-th iteration cycle check when the problem statement requires detecting negative cycles, or failing to check if `dist[u] !== Infinity` before relaxing, which can lead to relaxing dummy unreachable paths.',
+      comparisonNotes: 'Use Bellman-Ford when negative edge weights are present or when negative cycles must be detected. Use Dijkstra\'s for non-negative weighted graphs.',
+      displayOrder: 8,
+    },
+    {
+      name: 'Minimum Spanning Tree (MST)',
+      slug: 'minimum-spanning-tree',
+      groupSlug: 'graph',
+      triggerCue: 'Connect all vertices with minimum total edge weight; build networks (cabling, pipes) at minimum cost; find minimum spanning trees. Key trait: Connecting all V vertices using exactly V-1 edges with minimum total cost.',
+      coreIdea: 'Two main algorithms: (1) Kruskal\'s: Sort all E edges by weight. Greedily select the cheapest edge. If adding the edge does not create a cycle (validate using Union-Find), append it to the MST. Repeat until V-1 edges are selected. (2) Prim\'s: Start from a source node. Maintain a min-heap of candidate edges connecting visited vertices to unvisited vertices. Greedily add the minimum weight frontier edge, marking new vertices visited.',
+      whyItWorks: '1. Why the cut property guarantees correctness: For any partition (cut) of vertices, the minimum weight edge that crosses the cut must belong to some MST of the graph. Prim\'s expands the cut around the growing tree, greedily choosing the cheapest frontier edge. Kruskal\'s considers cuts globally by sorting edges.\n2. Why Kruskal\'s DSU check works: Adding an edge (u, v) creates a cycle if and only if u and v are already in the same connected component. The Union-Find `find(u) === find(v)` query checks this condition in O(α(V)) time.\n3. Why Prim\'s differs from Dijkstra\'s: Dijkstra\'s minimizes cumulative distance from a source (`dist[u] + weight`); Prim\'s minimizes only the immediate edge cost to connect an unvisited node to the existing tree (`weight`). The PQ key in Prim\'s is the individual edge weight, not the cumulative distance.',
+      codeSkeleton: `interface EdgeMST {
+  u: number;
+  v: number;
+  weight: number;
+}
+
+// 1. Kruskal\'s Algorithm (Sort + DSU)
+function kruskalsMST(V: number, edges: EdgeMST[]): { mst: EdgeMST[]; totalWeight: number } {
+  edges.sort((a, b) => a.weight - b.weight);
+
+  const uf = new UnionFind(V); // Assuming UnionFind class from DSU pattern
+  const mst: EdgeMST[] = [];
+  let totalWeight = 0;
+
+  for (const edge of edges) {
+    if (uf.union(edge.u, edge.v)) {
+      mst.push(edge);
+      totalWeight += edge.weight;
+      if (mst.length === V - 1) break;
+    }
+  }
+
+  return { mst, totalWeight };
+}
+
+// 2. Prim\'s Algorithm (Min-Heap based)
+interface AdjMSTNode {
+  node: number;
+  weight: number;
+}
+
+function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number = 0): number {
+  const pq = new MinPriorityQueue<number>();
+  const key = new Array(V).fill(Infinity);
+  const visited = new Set<number>();
+
+  key[start] = 0;
+  pq.enqueue(start, 0);
+
+  let totalWeight = 0;
+
+  while (pq.size() > 0) {
+    const { value: u, priority: w } = pq.dequeue()!;
+
+    if (visited.has(u)) continue;
+    visited.add(u);
+    totalWeight += w;
+
+    for (const neighbor of adjList.get(u) || []) {
+      const v = neighbor.node;
+      const weight = neighbor.weight;
+
+      if (!visited.has(v) && weight < key[v]) {
+        key[v] = weight;
+        pq.enqueue(v, weight); // Prim's stores direct weight, not path sum!
+      }
+    }
+  }
+
+  return totalWeight;
+}`,
+      timeComplexity: 'Kruskal\'s: O(E log E) or O(E log V); Prim\'s: O((V + E) log V) with binary heap',
+      spaceComplexity: 'O(V + E)',
+      commonMistake: 'Confusing MST with Single-Source Shortest Paths. An MST minimizes the sum of all edge weights in the tree; it does not guarantee the shortest path between any specific pair of nodes.',
+      comparisonNotes: 'Kruskal\'s is typically faster for sparse graphs since edge sorting dominates. Prim\'s is faster for dense graphs when using Fibonacci or binary heaps.',
+      displayOrder: 9,
+    },
   ];
 
   const dbPatterns: { [key: string]: string } = {};
 
   for (const p of patternsData) {
-    const groupId = p.groupSlug === 'array' ? arrayGroup.id : linkedListGroup.id;
+    const groupId = p.groupSlug === 'array'
+      ? arrayGroup.id
+      : p.groupSlug === 'linked-list'
+        ? linkedListGroup.id
+        : graphGroup.id;
     let existingPattern = await prisma.pattern.findUnique({
       where: { slug: p.slug },
     });
@@ -766,6 +1319,48 @@ for right in range(n):
     { id: 'p77', title: 'Longest Subarray with Sum K', leetcodeUrl: 'https://leetcode.com/problems/longest-subarray-with-sum-k/', leetcodeProblemNumber: null, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the length of the longest subarray with sum equal to K.' },
     { id: 'p78', title: 'Longest Substring Without Repeating Characters', leetcodeUrl: 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', leetcodeProblemNumber: 3, difficulty: Difficulty.MEDIUM, descriptionShort: 'Variable window — expand right, shrink left when a duplicate character enters the window. Uses a HashSet or frequency map.' },
     { id: 'p79', title: 'Minimum Window Substring', leetcodeUrl: 'https://leetcode.com/problems/minimum-window-substring/', leetcodeProblemNumber: 76, difficulty: Difficulty.HARD, descriptionShort: 'Find the smallest window in s containing all characters of t. Variable window with two frequency maps and a "valid" counter — the hardest standard sliding window problem.' },
+    // --- GRAPH PROBLEMS (p80 to p120) ---
+    { id: 'p80', title: 'Number of Islands', leetcodeUrl: 'https://leetcode.com/problems/number-of-islands/', leetcodeProblemNumber: 200, difficulty: Difficulty.MEDIUM, descriptionShort: 'Count the number of islands in a 2D grid of 1s and 0s.' },
+    { id: 'p81', title: 'Rotting Oranges', leetcodeUrl: 'https://leetcode.com/problems/rotting-oranges/', leetcodeProblemNumber: 994, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the minimum time elapsed until all oranges are rotten.' },
+    { id: 'p82', title: 'Word Ladder', leetcodeUrl: 'https://leetcode.com/problems/word-ladder/', leetcodeProblemNumber: 127, difficulty: Difficulty.HARD, descriptionShort: 'Find the length of the shortest transformation sequence from beginWord to endWord.' },
+    { id: 'p83', title: 'Shortest Path in Binary Matrix', leetcodeUrl: 'https://leetcode.com/problems/shortest-path-in-binary-matrix/', leetcodeProblemNumber: 1091, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the length of the shortest clear path in a binary matrix.' },
+    { id: 'p84', title: '01 Matrix', leetcodeUrl: 'https://leetcode.com/problems/01-matrix/', leetcodeProblemNumber: 542, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the distance of the nearest 0 for each cell.' },
+    { id: 'p85', title: 'Number of Connected Components in an Undirected Graph', leetcodeUrl: 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', leetcodeProblemNumber: 323, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the number of connected components in an undirected graph.' },
+    { id: 'p86', title: 'Course Schedule', leetcodeUrl: 'https://leetcode.com/problems/course-schedule/', leetcodeProblemNumber: 207, difficulty: Difficulty.MEDIUM, descriptionShort: 'Determine if it is possible to finish all courses given prerequisite dependencies.' },
+    { id: 'p87', title: 'All Paths From Source to Target', leetcodeUrl: 'https://leetcode.com/problems/all-paths-from-source-to-target/', leetcodeProblemNumber: 797, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find all possible paths from node 0 to node n-1.' },
+    { id: 'p88', title: 'Clone Graph', leetcodeUrl: 'https://leetcode.com/problems/clone-graph/', leetcodeProblemNumber: 133, difficulty: Difficulty.MEDIUM, descriptionShort: 'Deep copy a connected undirected graph.' },
+    { id: 'p89', title: 'Pacific Atlantic Water Flow', leetcodeUrl: 'https://leetcode.com/problems/pacific-atlantic-water-flow/', leetcodeProblemNumber: 417, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find grid cells where water can flow to both Pacific and Atlantic oceans.' },
+    { id: 'p90', title: 'Course Schedule II', leetcodeUrl: 'https://leetcode.com/problems/course-schedule-ii/', leetcodeProblemNumber: 210, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the order of courses to finish all courses given prerequisites.' },
+    { id: 'p91', title: 'Alien Dictionary', leetcodeUrl: 'https://leetcode.com/problems/alien-dictionary/', leetcodeProblemNumber: 269, difficulty: Difficulty.HARD, descriptionShort: 'Derive alphabet order from a sorted dictionary of an alien language.' },
+    { id: 'p92', title: 'Minimum Height Trees', leetcodeUrl: 'https://leetcode.com/problems/minimum-height-trees/', leetcodeProblemNumber: 310, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the root labels of all trees with minimum height.' },
+    { id: 'p93', title: 'Find Eventual Safe States', leetcodeUrl: 'https://leetcode.com/problems/find-eventual-safe-states/', leetcodeProblemNumber: 802, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find all nodes that eventually lead to terminal nodes.' },
+    { id: 'p94', title: 'Sequence Reconstruction', leetcodeUrl: 'https://leetcode.com/problems/sequence-reconstruction/', leetcodeProblemNumber: 444, difficulty: Difficulty.MEDIUM, descriptionShort: 'Check if the unique sequence can be reconstructed from subsequences.' },
+    { id: 'p95', title: 'Number of Provinces', leetcodeUrl: 'https://leetcode.com/problems/number-of-provinces/', leetcodeProblemNumber: 547, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the total number of connected groups of cities.' },
+    { id: 'p96', title: 'Redundant Connection', leetcodeUrl: 'https://leetcode.com/problems/redundant-connection/', leetcodeProblemNumber: 684, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find an edge that can be removed so the remaining graph is a tree.' },
+    { id: 'p97', title: 'Accounts Merge', leetcodeUrl: 'https://leetcode.com/problems/accounts-merge/', leetcodeProblemNumber: 721, difficulty: Difficulty.MEDIUM, descriptionShort: 'Merge email accounts belonging to the same person.' },
+    { id: 'p98', title: 'Number of Operations to Make Network Connected', leetcodeUrl: 'https://leetcode.com/problems/number-of-operations-to-make-network-connected/', leetcodeProblemNumber: 1319, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the minimum operations to connect all computers.' },
+    { id: 'p99', title: 'Satisfiability of Equality Equations', leetcodeUrl: 'https://leetcode.com/problems/satisfiability-of-equality-equations/', leetcodeProblemNumber: 990, difficulty: Difficulty.MEDIUM, descriptionShort: 'Check if equations of variables can be satisfied.' },
+    { id: 'p100', title: 'Network Delay Time', leetcodeUrl: 'https://leetcode.com/problems/network-delay-time/', leetcodeProblemNumber: 743, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the time it takes for all nodes to receive a signal.' },
+    { id: 'p101', title: 'Path With Minimum Effort', leetcodeUrl: 'https://leetcode.com/problems/path-with-minimum-effort/', leetcodeProblemNumber: 1631, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find a route from top-left to bottom-right with minimum effort.' },
+    { id: 'p102', title: 'Cheapest Flights Within K Stops', leetcodeUrl: 'https://leetcode.com/problems/cheapest-flights-within-k-stops/', leetcodeProblemNumber: 787, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the cheapest price from src to dst with at most k stops.' },
+    { id: 'p103', title: 'Find the City With the Smallest Number of Neighbors', leetcodeUrl: 'https://leetcode.com/problems/find-the-city-with-the-smallest-number-of-neighbors-at-a-threshold-distance/', leetcodeProblemNumber: 1334, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the city with the fewest reachable neighbors within distance threshold.' },
+    { id: 'p104', title: 'Swim in Rising Water', leetcodeUrl: 'https://leetcode.com/problems/swim-in-rising-water/', leetcodeProblemNumber: 778, difficulty: Difficulty.HARD, descriptionShort: 'Find the minimum time to reach the bottom-right cell in a grid.' },
+    { id: 'p105', title: 'Is Graph Bipartite?', leetcodeUrl: 'https://leetcode.com/problems/is-graph-bipartite/', leetcodeProblemNumber: 785, difficulty: Difficulty.MEDIUM, descriptionShort: 'Check if a graph can be partitioned into two independent sets.' },
+    { id: 'p106', title: 'Possible Bipartition', leetcodeUrl: 'https://leetcode.com/problems/possible-bipartition/', leetcodeProblemNumber: 886, difficulty: Difficulty.MEDIUM, descriptionShort: 'Check if a group of people can be split into two groups with no conflicts.' },
+    { id: 'p107', title: 'Flower Planting With No Adjacent', leetcodeUrl: 'https://leetcode.com/problems/flower-planting-with-no-adjacent/', leetcodeProblemNumber: 1042, difficulty: Difficulty.MEDIUM, descriptionShort: 'Plant 4 types of flowers in gardens such that no two connected gardens have the same.' },
+    { id: 'p108', title: 'Maximum Students Taking Exam', leetcodeUrl: 'https://leetcode.com/problems/maximum-students-taking-exam/', leetcodeProblemNumber: 1349, difficulty: Difficulty.HARD, descriptionShort: 'Find the maximum number of students who can take an exam without cheating.' },
+    { id: 'p109', title: 'Check if There is a Valid Path in a Grid', leetcodeUrl: 'https://leetcode.com/problems/check-if-there-is-a-valid-path-in-a-grid/', leetcodeProblemNumber: 1391, difficulty: Difficulty.MEDIUM, descriptionShort: 'Determine if there is a valid path from top-left to bottom-right cell.' },
+    { id: 'p110', title: 'Max Area of Island', leetcodeUrl: 'https://leetcode.com/problems/max-area-of-island/', leetcodeProblemNumber: 695, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the maximum area of an island in a grid.' },
+    { id: 'p111', title: 'Surrounded Regions', leetcodeUrl: 'https://leetcode.com/problems/surrounded-regions/', leetcodeProblemNumber: 130, difficulty: Difficulty.MEDIUM, descriptionShort: 'Capture all regions surrounded by water.' },
+    { id: 'p112', title: 'Flood Fill', leetcodeUrl: 'https://leetcode.com/problems/flood-fill/', leetcodeProblemNumber: 733, difficulty: Difficulty.EASY, descriptionShort: 'Perform a flood fill on an image starting from a coordinate.' },
+    { id: 'p113', title: 'Find the Safest Path in a Grid', leetcodeUrl: 'https://leetcode.com/problems/find-the-safest-path-in-a-grid/', leetcodeProblemNumber: 2812, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find a path from top-left to bottom-right that maximizes the minimum distance to any thief.' },
+    { id: 'p114', title: 'Minimum Cost to Reach City With Discounts', leetcodeUrl: 'https://leetcode.com/problems/minimum-cost-to-reach-city-with-discounts/', leetcodeProblemNumber: 2093, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the minimum cost to travel from city 0 to city n-1 with k discount coupons.' },
+    { id: 'p115', title: 'Negative Weight Cycle Detection', leetcodeUrl: 'https://leetcode.com/problems/cheapest-flights-within-k-stops/#negative-cycle', leetcodeProblemNumber: null, difficulty: Difficulty.MEDIUM, descriptionShort: 'Detect if a negative weight cycle exists in a graph. Note: modeled on LC 787 with an explanation note.' },
+    { id: 'p116', title: 'Min Cost to Connect All Points (Kruskal\'s)', leetcodeUrl: 'https://leetcode.com/problems/min-cost-to-connect-all-points/', leetcodeProblemNumber: 1584, difficulty: Difficulty.MEDIUM, descriptionShort: 'Connect all points with minimum cost using Kruskal\'s algorithm (sorting and Union-Find).' },
+    { id: 'p117', title: 'Connecting Cities With Minimum Cost', leetcodeUrl: 'https://leetcode.com/problems/connecting-cities-with-minimum-cost/', leetcodeProblemNumber: 1135, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the minimum cost to connect all cities such that there is a path between any two.' },
+    { id: 'p118', title: 'Optimize Water Distribution in a Village', leetcodeUrl: 'https://leetcode.com/problems/optimize-water-distribution-in-a-village/', leetcodeProblemNumber: 1168, difficulty: Difficulty.HARD, descriptionShort: 'Find the minimum cost to supply water to all houses in a village by building wells or pipes.' },
+    { id: 'p119', title: 'Min Cost to Connect All Points (Prim\'s)', leetcodeUrl: 'https://leetcode.com/problems/min-cost-to-connect-all-points/#prims', leetcodeProblemNumber: 1584, difficulty: Difficulty.MEDIUM, descriptionShort: 'Connect all points with minimum cost using Prim\'s algorithm (min-heap approach).' },
+    { id: 'p120', title: 'Find Critical and Pseudo-Critical Edges in MST', leetcodeUrl: 'https://leetcode.com/problems/find-critical-and-pseudo-critical-edges-in-minimum-spanning-tree/', leetcodeProblemNumber: 1489, difficulty: Difficulty.HARD, descriptionShort: 'Identify critical and pseudo-critical edges in a graph\'s minimum spanning tree.' },
   ];
 
   const dbProblems: { [key: string]: string } = {};
@@ -935,6 +1530,72 @@ for right in range(n):
     { problemId: 'p78', patternSlug: 'sliding-window', isPrimary: true }, // Longest Substring Without Repeating Characters (Primary)
     { problemId: 'p79', patternSlug: 'sliding-window', isPrimary: true }, // Minimum Window Substring (Primary)
     { problemId: 'p29', patternSlug: 'sliding-window', isPrimary: true }, // Sliding Window Max (Primary)
+
+    // === GRAPH MAPPINGS ===
+    // 1. BFS
+    { problemId: 'p80', patternSlug: 'bfs-shortest-path', isPrimary: false }, // Number of Islands (Secondary)
+    { problemId: 'p81', patternSlug: 'bfs-shortest-path', isPrimary: true }, // Rotting Oranges (Primary)
+    { problemId: 'p82', patternSlug: 'bfs-shortest-path', isPrimary: true }, // Word Ladder (Primary)
+    { problemId: 'p83', patternSlug: 'bfs-shortest-path', isPrimary: true }, // Shortest Path in Binary Matrix (Primary)
+    { problemId: 'p84', patternSlug: 'bfs-shortest-path', isPrimary: false }, // 01 Matrix (Secondary)
+
+    // 2. DFS
+    { problemId: 'p85', patternSlug: 'dfs-traversal', isPrimary: true }, // Number of Connected Components
+    { problemId: 'p86', patternSlug: 'dfs-traversal', isPrimary: true }, // Course Schedule (Primary)
+    { problemId: 'p87', patternSlug: 'dfs-traversal', isPrimary: true }, // All Paths From Source to Target (Primary)
+    { problemId: 'p88', patternSlug: 'dfs-traversal', isPrimary: true }, // Clone Graph (Primary)
+    { problemId: 'p89', patternSlug: 'dfs-traversal', isPrimary: true }, // Pacific Atlantic Water Flow (Primary)
+    { problemId: 'p80', patternSlug: 'dfs-traversal', isPrimary: false }, // Number of Islands (Secondary)
+
+    // 3. Topological Sort
+    { problemId: 'p90', patternSlug: 'topological-sort', isPrimary: true }, // Course Schedule II (Primary)
+    { problemId: 'p91', patternSlug: 'topological-sort', isPrimary: true }, // Alien Dictionary (Primary)
+    { problemId: 'p92', patternSlug: 'topological-sort', isPrimary: true }, // Minimum Height Trees (Primary)
+    { problemId: 'p93', patternSlug: 'topological-sort', isPrimary: true }, // Find Eventual Safe States (Primary)
+    { problemId: 'p94', patternSlug: 'topological-sort', isPrimary: true }, // Sequence Reconstruction (Primary)
+    { problemId: 'p86', patternSlug: 'topological-sort', isPrimary: false }, // Course Schedule (Secondary)
+
+    // 4. Union-Find
+    { problemId: 'p95', patternSlug: 'union-find', isPrimary: true }, // Number of Provinces
+    { problemId: 'p96', patternSlug: 'union-find', isPrimary: true }, // Redundant Connection
+    { problemId: 'p97', patternSlug: 'union-find', isPrimary: true }, // Accounts Merge
+    { problemId: 'p98', patternSlug: 'union-find', isPrimary: true }, // Number of Operations to Make Network Connected
+    { problemId: 'p99', patternSlug: 'union-find', isPrimary: true }, // Satisfiability of Equality Equations
+
+    // 5. Dijkstra
+    { problemId: 'p100', patternSlug: 'dijkstra-shortest-path', isPrimary: true }, // Network Delay Time (Primary)
+    { problemId: 'p101', patternSlug: 'dijkstra-shortest-path', isPrimary: true }, // Path With Minimum Effort
+    { problemId: 'p102', patternSlug: 'dijkstra-shortest-path', isPrimary: true }, // Cheapest Flights Within K Stops (Primary)
+    { problemId: 'p103', patternSlug: 'dijkstra-shortest-path', isPrimary: true }, // Find the City With the Smallest Number of Neighbors
+    { problemId: 'p104', patternSlug: 'dijkstra-shortest-path', isPrimary: true }, // Swim in Rising Water
+
+    // 6. Bipartite Check
+    { problemId: 'p105', patternSlug: 'bipartite-check', isPrimary: true }, // Is Graph Bipartite?
+    { problemId: 'p106', patternSlug: 'bipartite-check', isPrimary: true }, // Possible Bipartition
+    { problemId: 'p107', patternSlug: 'bipartite-check', isPrimary: true }, // Flower Planting With No Adjacent
+    { problemId: 'p108', patternSlug: 'bipartite-check', isPrimary: true }, // Maximum Students Taking Exam
+    { problemId: 'p109', patternSlug: 'bipartite-check', isPrimary: true }, // Check if There is a Valid Path in a Grid
+
+    // 7. Island / Grid Traversal
+    { problemId: 'p80', patternSlug: 'island-grid-traversal', isPrimary: true }, // Number of Islands (Primary)
+    { problemId: 'p110', patternSlug: 'island-grid-traversal', isPrimary: true }, // Max Area of Island
+    { problemId: 'p111', patternSlug: 'island-grid-traversal', isPrimary: true }, // Surrounded Regions
+    { problemId: 'p112', patternSlug: 'island-grid-traversal', isPrimary: true }, // Flood Fill
+    { problemId: 'p84', patternSlug: 'island-grid-traversal', isPrimary: true }, // 01 Matrix (Primary)
+
+    // 8. Bellman-Ford
+    { problemId: 'p102', patternSlug: 'bellman-ford', isPrimary: false }, // Cheapest Flights Within K Stops (Secondary)
+    { problemId: 'p100', patternSlug: 'bellman-ford', isPrimary: false }, // Network Delay Time (Secondary)
+    { problemId: 'p113', patternSlug: 'bellman-ford', isPrimary: true }, // Find the Safest Path in a Grid
+    { problemId: 'p114', patternSlug: 'bellman-ford', isPrimary: true }, // Minimum Cost to Reach City With Discounts
+    { problemId: 'p115', patternSlug: 'bellman-ford', isPrimary: true }, // Negative Weight Cycle Detection
+
+    // 9. MST
+    { problemId: 'p116', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Min Cost to Connect All Points (Kruskal's)
+    { problemId: 'p117', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Connecting Cities With Minimum Cost
+    { problemId: 'p118', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Optimize Water Distribution in a Village
+    { problemId: 'p119', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Min Cost to Connect All Points (Prim's)
+    { problemId: 'p120', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Find Critical and Pseudo-Critical Edges in MST
   ];
 
   for (const rel of problemPatternsRelations) {
@@ -1294,14 +1955,21 @@ function normalizeUrl(url: string): string {
   return cleaned.toLowerCase();
 }
 
-function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'array' | 'linked-list' } | null {
+function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'array' | 'linked-list' | 'graph' } | null {
   const topics = topicsStr.split(',').map(t => t.trim());
   const topicsLower = topics.map(t => t.toLowerCase());
 
   const hasLinkedList = topicsLower.includes('linked list');
   const hasArray = topicsLower.includes('array');
+  const hasGraph = topicsLower.includes('graph') || 
+                    topicsLower.includes('breadth-first search') || 
+                    topicsLower.includes('depth-first search') || 
+                    topicsLower.includes('union find') || 
+                    topicsLower.includes('minimum spanning tree') || 
+                    topicsLower.includes('topological sort') || 
+                    topicsLower.includes('bipartite');
 
-  if (!hasLinkedList && !hasArray) {
+  if (!hasLinkedList && !hasArray && !hasGraph) {
     return null; // Skip it!
   }
 
@@ -1360,6 +2028,34 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
       return { slug: 'binary-search-on-answer', group: 'array' };
     }
     return null; // No default fallback!
+  }
+
+  if (hasGraph) {
+    if (topicsLower.includes('union find') || topicsLower.includes('disjoint set')) {
+      return { slug: 'union-find', group: 'graph' };
+    }
+    if (topicsLower.includes('topological sort')) {
+      return { slug: 'topological-sort', group: 'graph' };
+    }
+    if (topicsLower.includes('minimum spanning tree')) {
+      return { slug: 'minimum-spanning-tree', group: 'graph' };
+    }
+    if (topicsLower.includes('bipartite')) {
+      return { slug: 'bipartite-check', group: 'graph' };
+    }
+    if (topicsLower.includes('shortest path') || topicsLower.includes('dijkstra')) {
+      return { slug: 'dijkstra-shortest-path', group: 'graph' };
+    }
+    if (topicsLower.includes('breadth-first search')) {
+      return { slug: 'bfs-shortest-path', group: 'graph' };
+    }
+    if (topicsLower.includes('depth-first search')) {
+      return { slug: 'dfs-traversal', group: 'graph' };
+    }
+    if (topicsLower.includes('matrix') || topicsLower.includes('grid')) {
+      return { slug: 'island-grid-traversal', group: 'graph' };
+    }
+    return null;
   }
 
   return null;
