@@ -43,7 +43,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav 
-      className="glass-panel sticky top-0 z-50 border-b border-white/5 px-6 py-4 flex items-center justify-between" 
+      className="bg-[#0B0F19] sticky top-0 z-50 border-b border-white/5 px-6 py-4 flex items-center justify-between" 
       ref={menuRef}
     >
       <div className="flex items-center gap-3">

@@ -101,7 +101,7 @@ export const PatternLibrary: React.FC = () => {
     <div className="min-h-screen bg-[#080C14] bg-grid-pattern relative">
       <div className="glow-blob w-[500px] h-[500px] bg-brand-600/10 top-0 left-10"></div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 relative z-10">
         {/* Header Section */}
         <div className="flex flex-col gap-1 mb-8">
           <div className="flex items-center gap-2 text-brand-400 text-sm font-semibold tracking-wider uppercase">
@@ -119,7 +119,7 @@ export const PatternLibrary: React.FC = () => {
 
         {/* Group Filter Tabs */}
         {groupsList.length > 1 && (
-          <div className="flex flex-nowrap border-b border-white/5 gap-6 mb-8 overflow-x-auto scrollbar-none touch-pan-x">
+          <div className="flex flex-nowrap border-b border-white/5 gap-4 sm:gap-6 mb-8 overflow-x-auto scrollbar-none touch-pan-x">
             {groupsList.map((group) => {
               const isActive = group.slug === activeGroupSlug;
               return (
@@ -149,11 +149,11 @@ export const PatternLibrary: React.FC = () => {
             <p className="text-slate-400">No patterns found for this category.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredPatterns.map((pat) => (
               <div
                 key={pat.id}
-                className="glass-panel glass-panel-hover rounded-2xl p-6 flex flex-col justify-between border border-white/5 shadow-xl relative overflow-hidden group"
+                className="glass-panel glass-panel-hover rounded-2xl p-5 sm:p-6 flex flex-col justify-between border border-white/5 shadow-xl relative overflow-hidden group"
               >
                 <div className="space-y-4">
                   {/* Header Info */}
