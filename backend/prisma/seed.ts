@@ -139,20 +139,21 @@ async function main() {
       triggerCue: 'Sorted input array; searching for pairs or triplets that meet a target sum/condition; shrinking search spaces from boundaries; or partition operations.',
       coreIdea: 'Initialize two pointer variables at indices of interest (often boundaries: 0 and N-1) and iteratively move them towards each other or in parallel to evaluate conditions.',
       whyItWorks: 'Relies on a monotonicity guarantee. In a sorted array, moving the left pointer rightward strictly increases the sum, and moving the right pointer leftward strictly decreases it. Similarly, for the Sliding Window subarray variant (e.g., finding a subarray with sum K), expanding the right pointer increases the running sum and shrinking the left pointer decreases it. This sum monotonicity guarantees that if the current window sum exceeds K, we can safely discard further expansions from the current left pointer because any expansion would only increase the sum. Crucially, this monotonicity holds ONLY if all elements are non-negative. If negative numbers are present, adding an element can decrease the sum and removing an element can increase it, breaking the monotonicity guarantee. In such cases, the sliding window fails, and we must fall back to the Prefix Sum + HashMap pattern, which does not rely on monotonicity.',
-      codeSkeleton: `function twoPointerSearch(arr: number[], target: number): number[] {
-  let left = 0;
-  let right = arr.length - 1;
-  while (left < right) {
-    const currentSum = arr[left] + arr[right];
-    if (currentSum === target) {
-      return [left, right];
-    } else if (currentSum < target) {
-      left++;
-    } else {
-      right--;
+      codeSkeleton: `// Two pointer search on sorted array
+std::vector<int> twoPointerSearch(const std::vector<int>& arr, int target) {
+    int left = 0;
+    int right = arr.size() - 1;
+    while (left < right) {
+        int currentSum = arr[left] + arr[right];
+        if (currentSum == target) {
+            return {left, right};
+        } else if (currentSum < target) {
+            left++;
+        } else {
+            right--;
+        }
     }
-  }
-  return [-1, -1];
+    return {-1, -1};
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1) (excluding sorting if sorting is required)',
@@ -167,20 +168,20 @@ async function main() {
       triggerCue: 'Subarrays summing to K or a multiple of K; counting subarrays with a specific relationship; or finding subarrays with equal frequencies of two values.',
       coreIdea: 'Compute running prefix sums of the array, and store the cumulative sums along with their frequency or first occurrence index inside a hash map for constant-time lookup.',
       whyItWorks: 'The sum of elements in a contiguous subarray from index i to j is computed as Prefix[j] - Prefix[i - 1]. If we search for a subarray summing to K, we need Prefix[j] - Prefix[i - 1] = K, which rearranges to Prefix[i - 1] = Prefix[j] - K. By storing prefix sums in a HashMap, we can query if Prefix[j] - K has occurred in the past in O(1) time. To find the MAXIMUM length subarray summing to K, we must store only the FIRST occurrence index of each prefix sum in the HashMap and never overwrite it with later occurrences. This is because for a fixed endpoint j, to maximize j - (i - 1), we must minimize i - 1 (the index of the first occurrence of Prefix[j] - K). Furthermore, the HashMap must be pre-populated with {0: -1}. This represents a dummy prefix sum of 0 at index -1, ensuring that if a subarray starting exactly at index 0 sums to K (meaning Prefix[j] - K = 0), its length is correctly calculated as j - (-1) = j + 1.',
-      codeSkeleton: `function subarraySum(nums: number[], k: number): number {
-  const prefixMap = new Map<number, number>();
-  prefixMap.set(0, 1); // Base case: prefix sum of 0 has occurred 1 time
-  let runningSum = 0;
-  let count = 0;
-  
-  for (let i = 0; i < nums.length; i++) {
-    runningSum += nums[i];
-    if (prefixMap.has(runningSum - k)) {
-      count += prefixMap.get(runningSum - k)!;
+      codeSkeleton: `// Find number of subarrays that sum to k
+int subarraySum(const std::vector<int>& nums, int k) {
+    std::unordered_map<int, int> prefixMap;
+    prefixMap[0] = 1; // Base case
+    int runningSum = 0;
+    int count = 0;
+    for (int num : nums) {
+        runningSum += num;
+        if (prefixMap.find(runningSum - k) != prefixMap.end()) {
+            count += prefixMap[runningSum - k];
+        }
+        prefixMap[runningSum]++;
     }
-    prefixMap.set(runningSum, (prefixMap.get(runningSum) || 0) + 1);
-  }
-  return count;
+    return count;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(N)',
@@ -195,15 +196,15 @@ async function main() {
       triggerCue: 'Maximum sum of a contiguous subarray; maximum product subarray; or finding optimal subsegment values under state transitions.',
       coreIdea: 'Iterate through the array while calculating the maximum subarray sum ending at each index, choosing whether to extend the previous subarray or start a new one.',
       whyItWorks: 'Based on optimal substructure and inductive proof. Let LocalMax[i] be the maximum sum of any contiguous subarray ending at index i. Any subarray ending at i must either consist of just nums[i] (starting a new subarray), or be an extension of a subarray ending at i-1. Thus, the search space for LocalMax[i] is defined by LocalMax[i] = max(nums[i], LocalMax[i-1] + nums[i]). This extend or restart rule is provably correct: if LocalMax[i-1] is negative, it can only decrease the sum of any subarray ending at i. Therefore, any subarray ending at i that includes elements before i will have a sum strictly less than nums[i] alone. Hence, restarting at nums[i] is the optimal decision. If LocalMax[i-1] is non-negative, adding it to nums[i] will always yield a sum greater than or equal to nums[i] alone. Thus, extending the previous optimal subarray is guaranteed to be optimal. By induction, computing this local choice at each index from 0 to N-1 covers all possible end positions of subarrays, and the global maximum of these local choices must be the absolute maximum subarray sum.',
-      codeSkeleton: `function maxSubArray(nums: number[]): number {
-  let globalMax = nums[0];
-  let localMax = nums[0];
-  
-  for (let i = 1; i < nums.length; i++) {
-    localMax = Math.max(nums[i], localMax + nums[i]);
-    globalMax = Math.max(globalMax, localMax);
-  }
-  return globalMax;
+      codeSkeleton: `// Find maximum subarray sum
+int maxSubArray(const std::vector<int>& nums) {
+    int maxSoFar = nums[0];
+    int currentMax = nums[0];
+    for (size_t i = 1; i < nums.size(); ++i) {
+        currentMax = std::max(nums[i], currentMax + nums[i]);
+        maxSoFar = std::max(maxSoFar, currentMax);
+    }
+    return maxSoFar;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -218,25 +219,22 @@ async function main() {
       triggerCue: 'Interval operations (merging, inserting); scheduling events; minimizing overlapping ranges; or maximizing items matching constraints.',
       coreIdea: 'Establish a globally optimal order by sorting input items (typically by start time, end time, or value) and processing them sequentially to make locally optimal choices.',
       whyItWorks: 'Sorting elements imposes a strict ordering constraint that removes the need to look back or backtrack. In interval problems, sorting by start time guarantees that for any interval i, any overlap can only occur with previous intervals or intervals adjacent in sorted order. This reduces the overlapping check from all pairs O(N^2) to adjacent pairs O(N).',
-      codeSkeleton: `function mergeIntervals(intervals: number[][]): number[][] {
-  if (intervals.length <= 1) return intervals;
-  // Sort by start times
-  intervals.sort((a, b) => a[0] - b[0]);
-  const merged: number[][] = [intervals[0]];
-  
-  for (let i = 1; i < intervals.length; i++) {
-    const current = intervals[i];
-    const lastMerged = merged[merged.length - 1];
-    
-    if (current[0] <= lastMerged[1]) {
-      // Overlap: merge by updating end boundary
-      lastMerged[1] = Math.max(lastMerged[1], current[1]);
-    } else {
-      // No overlap: add new interval
-      merged.push(current);
+      codeSkeleton: `// Merge overlapping intervals
+std::vector<std::vector<int>> mergeIntervals(std::vector<std::vector<int>>& intervals) {
+    if (intervals.empty()) return {};
+    std::sort(intervals.begin(), intervals.end(), [](const auto& a, const auto& b) {
+        return a[0] < b[0];
+    });
+    std::vector<std::vector<int>> merged;
+    merged.push_back(intervals[0]);
+    for (const auto& interval : intervals) {
+        if (interval[0] <= merged.back()[1]) {
+            merged.back()[1] = std::max(merged.back()[1], interval[1]);
+        } else {
+            merged.push_back(interval);
+        }
     }
-  }
-  return merged;
+    return merged;
 }`,
       timeComplexity: 'O(N log N)',
       spaceComplexity: 'O(N) (or O(log N) for sorting stack space)',
@@ -251,12 +249,13 @@ async function main() {
       triggerCue: 'Finding a number that appears an odd number of times; identifying a single missing/duplicate value; or operations involving binary bit cancellations.',
       coreIdea: 'Leverage the algebraic properties of operators—particularly bitwise XOR (^) or arithmetic series formulas—to isolate target values through cancellation.',
       whyItWorks: 'Bitwise XOR is commutative (A ^ B = B ^ A) and associative (A ^ (B ^ C) = (A ^ B) ^ C). Furthermore, it satisfies two key identities: A ^ A = 0 (self-cancellation) and A ^ 0 = A (identity). Thus, if we XOR all elements in an array where every element appears exactly twice except one, the duplicates cancel out to 0, leaving only the unique element. For missing numbers in range [0, N], XORing the array with all numbers in [0, N] cancels the present numbers, isolating the missing one.',
-      codeSkeleton: `function findSingleNumber(nums: number[]): number {
-  let xorResult = 0;
-  for (const num of nums) {
-    xorResult ^= num;
-  }
-  return xorResult;
+      codeSkeleton: `// Find the element that appears once where all others appear twice
+int findSingleNumber(const std::vector<int>& nums) {
+    int singleNum = 0;
+    for (int num : nums) {
+        singleNum ^= num;
+    }
+    return singleNum;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -271,35 +270,27 @@ async function main() {
       triggerCue: 'Grid-based traversals (spiral, diagonal); rotating matrix cells in layers; or simulation of game grids (e.g., Conway\'s Game of Life, Minesweeper).',
       coreIdea: 'Maintain boundary variables (top, bottom, left, right) representing the unvisited grid margins, and run a structured loop to sweep through rows and columns while adjusting those boundaries.',
       whyItWorks: 'By explicitly tracking four state variables (top, bottom, left, right) that delimit the active window, we can translate complex geometric paths into sequential loops. Shrinking a boundary variable (e.g., top++) after completing a row segment prevents subsequent sweeps from re-visiting those cells, guaranteeing that each matrix element is visited exactly once.',
-      codeSkeleton: `function spiralOrder(matrix: number[][]): number[] {
-  const result: number[] = [];
-  if (matrix.length === 0) return result;
-  
-  let top = 0, bottom = matrix.length - 1;
-  let left = 0, right = matrix[0].length - 1;
-  
-  while (top <= bottom && left <= right) {
-    // 1. Traverse Right
-    for (let i = left; i <= right; i++) result.push(matrix[top][i]);
-    top++;
-    
-    // 2. Traverse Down
-    for (let i = top; i <= bottom; i++) result.push(matrix[i][right]);
-    right--;
-    
-    // 3. Traverse Left (with guard)
-    if (top <= bottom) {
-      for (let i = right; i >= left; i--) result.push(matrix[bottom][i]);
-      bottom--;
+      codeSkeleton: `// Spiral order traversal of matrix
+std::vector<int> spiralOrder(const std::vector<std::vector<int>>& matrix) {
+    if (matrix.empty()) return {};
+    int top = 0, bottom = matrix.size() - 1;
+    int left = 0, right = matrix[0].size() - 1;
+    std::vector<int> result;
+    while (top <= bottom && left <= right) {
+        for (int i = left; i <= right; ++i) result.push_back(matrix[top][i]);
+        top++;
+        for (int i = top; i <= bottom; ++i) result.push_back(matrix[i][right]);
+        right--;
+        if (top <= bottom) {
+            for (int i = right; i >= left; --i) result.push_back(matrix[bottom][i]);
+            bottom--;
+        }
+        if (left <= right) {
+            for (int i = bottom; i >= top; --i) result.push_back(matrix[i][left]);
+            left++;
+        }
     }
-    
-    // 4. Traverse Up (with guard)
-    if (left <= right) {
-      for (let i = bottom; i >= top; i--) result.push(matrix[i][left]);
-      left++;
-    }
-  }
-  return result;
+    return result;
 }`,
       timeComplexity: 'O(N * M) where N is rows and M is columns',
       spaceComplexity: 'O(1) (excluding output array)',
@@ -314,23 +305,22 @@ async function main() {
       triggerCue: 'Counting inversion pairs (i < j and A[i] > A[j]); counting modified pairs (A[i] > 2*A[j]); or sorting arrays with custom merge-time logic.',
       coreIdea: 'Recursively split the array into halves, solve the subproblems, and merge the sorted halves while counting relationships between elements in the left and right divisions.',
       whyItWorks: 'Relies on sorted sub-arrays. If we split an array into two sorted sub-arrays: Left and Right. During the merge step, if we find an element Left[i] > Right[j], it implies that all subsequent elements in the Left sub-array (from index i to the end of Left) are also greater than Right[j] because Left is sorted. This mathematical deduction allows us to count index relationships in O(1) per element, avoiding O(N^2) comparison operations.',
-      codeSkeleton: `function mergeAndCount(arr: number[], temp: number[], left: number, mid: number, right: number): number {
-  let i = left, j = mid + 1, k = left;
-  let invCount = 0;
-  
-  while (i <= mid && j <= right) {
-    if (arr[i] <= arr[j]) {
-      temp[k++] = arr[i++];
-    } else {
-      temp[k++] = arr[j++];
-      invCount += (mid - i + 1); // Key step: count all elements in left subarray
+      codeSkeleton: `// Count inversions using Merge Sort
+int mergeAndCount(std::vector<int>& arr, std::vector<int>& temp, int left, int mid, int right) {
+    int i = left, j = mid + 1, k = left;
+    int invCount = 0;
+    while (i <= mid && j <= right) {
+        if (arr[i] <= arr[j]) {
+            temp[k++] = arr[i++];
+        } else {
+            temp[k++] = arr[j++];
+            invCount += (mid - i + 1); // Count inversions
+        }
     }
-  }
-  while (i <= mid) temp[k++] = arr[i++];
-  while (j <= right) temp[k++] = arr[j++];
-  for (i = left; i <= right; i++) arr[i] = temp[i];
-  
-  return invCount;
+    while (i <= mid) temp[k++] = arr[i++];
+    while (j <= right) temp[k++] = arr[j++];
+    for (i = left; i <= right; ++i) arr[i] = temp[i];
+    return invCount;
 }`,
       timeComplexity: 'O(N log N)',
       spaceComplexity: 'O(N) for the auxiliary merge array',
@@ -345,34 +335,32 @@ async function main() {
       triggerCue: 'Optimization problems asking to "minimize the maximum value" or "maximize the minimum value"; and a search space that exhibits a monotonic yes/no behavior.',
       coreIdea: 'Define a bound [Low, High] of all possible answers, select the middle value, validate if it is possible to achieve using a validation helper, and shrink the search range.',
       whyItWorks: 'Relies on search space monotonicity. If an answer X is possible, then for a minimization problem, all values Y > X are also guaranteed to be possible. Conversely, if X is impossible, all values Y < X are also impossible. This binary transition (No, No, No, Yes, Yes, Yes) allows us to perform a binary search on the range of answers, finding the boundary value in O(log(Range)) steps.',
-      codeSkeleton: `function shipWithinDays(weights: number[], days: number): number {
-  let low = Math.max(...weights);
-  let high = weights.reduce((a, b) => a + b, 0);
-  let ans = high;
-  
-  function canShip(capacity: number): boolean {
-    let currentWeight = 0, currentDays = 1;
-    for (const w of weights) {
-      if (currentWeight + w > capacity) {
-        currentDays++;
-        currentWeight = w;
-      } else {
-        currentWeight += w;
-      }
+      codeSkeleton: `// Binary search to find minimum capacity to ship packages within D days
+int shipWithinDays(const std::vector<int>& weights, int days) {
+    auto isValid = [&](int cap) {
+        int d = 1, currentWeight = 0;
+        for (int w : weights) {
+            if (currentWeight + w > cap) {
+                d++;
+                currentWeight = 0;
+            }
+            currentWeight += w;
+        }
+        return d <= days;
+    };
+    int low = *std::max_element(weights.begin(), weights.end());
+    int high = std::accumulate(weights.begin(), weights.end(), 0);
+    int ans = high;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (isValid(mid)) {
+            ans = mid;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
     }
-    return currentDays <= days;
-  }
-  
-  while (low <= high) {
-    const mid = low + Math.floor((high - low) / 2);
-    if (canShip(mid)) {
-      ans = mid;
-      high = mid - 1; // Try to find a smaller valid capacity
-    } else {
-      low = mid + 1;  // Increase capacity
-    }
-  }
-  return ans;
+    return ans;
 }`,
       timeComplexity: 'O(N * log(High - Low)) where N is the array size and High-Low is the search space range',
       spaceComplexity: 'O(1)',
@@ -387,18 +375,19 @@ async function main() {
       triggerCue: 'Finding the next greater or previous smaller element; calculating the maximum area in a histogram; or tracking the maximum element in a sliding window.',
       coreIdea: 'Maintain a stack or double-ended queue whose elements are kept in strictly increasing or decreasing order of values by popping elements that violate this ordering before pushing the new element.',
       whyItWorks: 'Prunes redundant candidates. If we are looking for the next greater element, and we encounter a new element nums[i] that is larger than the element at the top of the stack, it means nums[i] is the next greater element for those stack items. Those items are resolved and popped. This ensures that every element is pushed onto the stack once and popped at most once, reducing an O(N^2) lookahead check to O(N) amortized time.',
-      codeSkeleton: `function nextGreaterElement(nums: number[]): number[] {
-  const result: number[] = new Array(nums.length).fill(-1);
-  const stack: number[] = []; // Stores indices
-  
-  for (let i = 0; i < nums.length; i++) {
-    while (stack.length > 0 && nums[stack[stack.length - 1]] < nums[i]) {
-      const idx = stack.pop()!;
-      result[idx] = nums[i];
+      codeSkeleton: `// Next Greater Element (NGE) using Monotonic Stack
+std::vector<int> nextGreaterElement(const std::vector<int>& nums) {
+    int n = nums.size();
+    std::vector<int> result(n, -1);
+    std::stack<int> s; // Stores indices
+    for (int i = 0; i < n; ++i) {
+        while (!s.empty() && nums[i] > nums[s.top()]) {
+            result[s.top()] = nums[i];
+            s.pop();
+        }
+        s.push(i);
     }
-    stack.push(i);
-  }
-  return result;
+    return result;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(N)',
@@ -413,18 +402,17 @@ async function main() {
       triggerCue: 'Unsorted array containing numbers strictly in a range from 1 to N (or 0 to N); finding missing, duplicate, or misplaced integers.',
       coreIdea: 'Iterate through the array. For each element, check if it is at its correct index (i.e. number X belongs at index X-1). If not, swap it with the element at its target index. Repeat this check until the element is correct before moving to the next index.',
       whyItWorks: 'Based on the invariant of cycle decomposition in permutations. Any permutation of N elements can be decomposed into a set of disjoint cycles. The cyclic sort algorithm works by traversing the array and resolving these cycles. For any misplaced element nums[i], we swap it with the element at its correct index correctIdx = nums[i] - 1. Each swap is guaranteed to place at least one element in its final sorted position. Once an element is placed at its correct position, the size of the remaining unsorted cycles decreases by 1. Since there are at most N elements, the algorithm performs at most N - 1 swaps before all cycles are resolved (elements are at their correct index), ensuring termination in O(N) operations. To handle duplicates without infinite looping, we check the condition nums[i] !== nums[correctIdx]. If the element we want to swap is identical to the element already at the target index (i.e. nums[i] === nums[nums[i]-1]), we do not swap (since swapping would not progress the cycle resolution). Instead, we simply increment our pointer i++, successfully breaking what would otherwise be an infinite cycle loop.',
-      codeSkeleton: `function cyclicSort(nums: number[]): void {
-  let i = 0;
-  while (i < nums.length) {
-    const correctIdx = nums[i] - 1;
-    if (nums[i] > 0 && nums[i] <= nums.length && nums[i] !== nums[correctIdx]) {
-      const temp = nums[i];
-      nums[i] = nums[correctIdx];
-      nums[correctIdx] = temp;
-    } else {
-      i++;
+      codeSkeleton: `// Cyclic Sort for elements from 1 to N
+void cyclicSort(std::vector<int>& nums) {
+    int i = 0, n = nums.size();
+    while (i < n) {
+        int correctIdx = nums[i] - 1;
+        if (nums[i] > 0 && nums[i] <= n && nums[i] != nums[correctIdx]) {
+            std::swap(nums[i], nums[correctIdx]);
+        } else {
+            i++;
+        }
     }
-  }
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -439,17 +427,18 @@ async function main() {
       triggerCue: 'Finding duplicates or missing numbers in an array of size N where all elements are positive and lie in the range [1, N]; modifying a matrix under constraints without using extra space.',
       coreIdea: 'Use the absolute values of the array elements as indices, and negate the elements at those target indices to mark that the corresponding index has been seen.',
       whyItWorks: 'Leverages the sign bit as a separate Boolean indicator. Since all valid elements are positive integers and lie within the array bounds [1, N], we can mark a number X as "seen" by negating the value at index X-1. The original number remains recoverable by taking the absolute value `Math.abs(nums[i])`, while the sign (positive/negative) acts as an in-place Boolean flag, eliminating the need for an external Boolean array.',
-      codeSkeleton: `function findDuplicates(nums: number[]): number[] {
-  const duplicates: number[] = [];
-  for (let i = 0; i < nums.length; i++) {
-    const targetIdx = Math.abs(nums[i]) - 1;
-    if (nums[targetIdx] < 0) {
-      duplicates.push(targetIdx + 1);
-    } else {
-      nums[targetIdx] = -nums[targetIdx];
+      codeSkeleton: `// Find all duplicates in O(N) time and O(1) extra space
+std::vector<int> findDuplicates(std::vector<int>& nums) {
+    std::vector<int> duplicates;
+    for (int i = 0; i < nums.size(); ++i) {
+        int idx = std::abs(nums[i]) - 1;
+        if (nums[idx] < 0) {
+            duplicates.push_back(idx + 1);
+        } else {
+            nums[idx] = -nums[idx]; // Mark as visited
+        }
     }
-  }
-  return duplicates;
+    return duplicates;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1) auxiliary space',
@@ -464,25 +453,24 @@ async function main() {
       triggerCue: 'Finding the maximum number of overlapping intervals; calculating active resource consumption on a timeline; or checking interval intersections.',
       coreIdea: 'Convert intervals into discrete boundary events (start events and end events), sort these events chronologically, and sweep through them while maintaining a running sum of active overlaps.',
       whyItWorks: 'Translates 2D interval intersections into a 1D running prefix sum. Each interval starting at T1 and ending at T2 is represented as a point source `+1` at T1 and a point sink `-1` at T2. Sorting these events ensures we process timeline changes in chronological order. Sweeping through the sorted events and tracking the cumulative sum yields the exact number of active intervals at any point in time.',
-      codeSkeleton: `interface EventPoint {
-  time: number;
-  type: number;
-}
+      codeSkeleton: `struct EventPoint {
+    int time;
+    int type; // +1 for arrival/start, -1 for departure/end
+    bool operator<(const EventPoint& other) const {
+        if (time != other.time) return time < other.time;
+        return type < other.type; // process end before start if overlapping
+    }
+};
 
-function minMeetingRooms(intervals: number[][]): number {
-  const events: EventPoint[] = [];
-  for (const interval of intervals) {
-    events.push({ time: interval[0], type: 1 });
-    events.push({ time: interval[1], type: -1 });
-  }
-  events.sort((a, b) => a.time - b.time || a.type - b.type);
-  let activeRooms = 0;
-  let maxRooms = 0;
-  for (const event of events) {
-    activeRooms += event.type;
-    maxRooms = Math.max(maxRooms, activeRooms);
-  }
-  return maxRooms;
+// Line sweep to find maximum overlapping intervals
+int minMeetingRooms(std::vector<EventPoint>& events) {
+    std::sort(events.begin(), events.end());
+    int maxRooms = 0, currentRooms = 0;
+    for (const auto& event : events) {
+        currentRooms += event.type;
+        maxRooms = std::max(maxRooms, currentRooms);
+    }
+    return maxRooms;
 }`,
       timeComplexity: 'O(N log N) due to sorting',
       spaceComplexity: 'O(N) to store events',
@@ -499,17 +487,17 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Cycle detection; finding the middle node of a list; finding the k-th node from the end of a list.',
       coreIdea: 'Traverse the list with two pointers moving at different speeds (usually the fast pointer advances by two nodes per step while the slow pointer advances by one node).',
       whyItWorks: 'Relies on relative speed propagation in a closed loop. If a cycle of length C exists, once both pointers enter the cycle, the fast pointer is at a relative distance D (0 <= D < C) behind the slow pointer. In each step, the slow pointer advances by 1 node and the fast pointer advances by 2. The relative distance between them decreases by exactly 2 - 1 = 1 node per step. Because the distance decreases monotonically by exactly 1 in each step (modulo C), the distance must eventually shrink to 0. This mathematically guarantees that the fast pointer will catch the slow pointer within at most C steps after both enter the loop, preventing an infinite traversal.',
-      codeSkeleton: `function hasCycle(head: ListNode | null): boolean {
-  let slow = head;
-  let fast = head;
-  while (fast && fast.next) {
-    slow = slow!.next;
-    fast = fast.next.next;
-    if (slow === fast) {
-      return true;
+      codeSkeleton: `// Cycle detection using Floyd's Tortoise and Hare
+bool hasCycle(ListNode* head) {
+    if (!head || !head->next) return false;
+    ListNode* slow = head;
+    ListNode* fast = head;
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+        if (slow == fast) return true;
     }
-  }
-  return false;
+    return false;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -524,16 +512,17 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Reversing a whole list; reversing a contiguous subsegment of a list; or reversing alternate nodes.',
       coreIdea: 'Mutate the next pointers of list nodes dynamically to point to their predecessors using three tracking pointers (prev, curr, next).',
       whyItWorks: 'In a singly linked list, each node contains a reference only to its successor. Modifying a node\'s pointer in-place (curr.next = prev) immediately breaks the link pointing forward. Without keeping a reference to the remaining unreversed portion of the list, we lose access to the rest of the list. To preserve reference continuity, we maintain a three-pointer invariant: \'prev\' tracks the reversed sublist head, \'curr\' is the active node being mutated, and \'nextTemp\' is a temporary variable storing curr.next before mutation. This allows us to reassign curr.next to prev and then advance the pointers to the rest of the list safely in O(1) auxiliary space.',
-      codeSkeleton: `function reverseList(head: ListNode | null): ListNode | null {
-  let prev: ListNode | null = null;
-  let curr = head;
-  while (curr) {
-    const nextTemp = curr.next;
-    curr.next = prev;
-    prev = curr;
-    curr = nextTemp;
-  }
-  return prev;
+      codeSkeleton: `// In-place reversal of a Singly Linked List
+ListNode* reverseList(ListNode* head) {
+    ListNode* prev = nullptr;
+    ListNode* current = head;
+    while (current) {
+        ListNode* nextNode = current->next;
+        current->next = prev;
+        prev = current;
+        current = nextNode;
+    }
+    return prev; // New head
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -548,21 +537,22 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Merging two sorted linked lists; sorting a list using Merge Sort; or interleaving sorted lists.',
       coreIdea: 'Iteratively compare the head nodes of two sorted lists, append the smaller node to the end of the new merged list, and advance that list\'s pointer.',
       whyItWorks: 'Sorted list merging relies on structural comparison. At any stage, the smallest element of the remaining sorted lists must be at the head of one of the two input lists. By comparing the heads, we greedily build the merged list. Using a dummy head node simplifies this by establishing a non-null, permanent anchor. This eliminates the need for separate conditional branches to initialize the head and tail pointers of the merged list, allowing all updates to use a uniform tail.next assignment. Once one list is exhausted, we attach the remaining sorted list in O(1) time by linking the tail directly to it.',
-      codeSkeleton: `function mergeTwoLists(l1: ListNode | null, l2: ListNode | null): ListNode | null {
-  const dummy = new ListNode(-1);
-  let tail = dummy;
-  while (l1 && l2) {
-    if (l1.val <= l2.val) {
-      tail.next = l1;
-      l1 = l1.next;
-    } else {
-      tail.next = l2;
-      l2 = l2.next;
+      codeSkeleton: `// Merge two sorted linked lists
+ListNode* mergeTwoLists(ListNode* l1, ListNode* l2) {
+    ListNode dummy(0);
+    ListNode* tail = &dummy;
+    while (l1 && l2) {
+        if (l1->val <= l2->val) {
+            tail->next = l1;
+            l1 = l1->next;
+        } else {
+            tail->next = l2;
+            l2 = l2->next;
+        }
+        tail = tail->next;
     }
-    tail = tail.next;
-  }
-  tail.next = l1 || l2;
-  return dummy.next;
+    tail->next = l1 ? l1 : l2;
+    return dummy.next;
 }`,
       timeComplexity: 'O(N + M)',
       spaceComplexity: 'O(1)',
@@ -577,20 +567,23 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Deleting elements matching a value; removing the nth node from the end; or partitioning a list around a pivot.',
       coreIdea: 'Prepend a temporary sentinel (dummy) node before the real head of the list, perform manipulations relative to this node, and return dummy.next.',
       whyItWorks: 'Modifying a singly linked list node (deletion or insertion) requires modifying its predecessor\'s next pointer. However, the first node (head) has no predecessor. Therefore, operations affecting the head node (e.g. deleting it, or inserting before it) require separate conditional check branches. Prepending a dummy node guarantees that every node, including the original head, has a predecessor. This allows us to apply the same mutation logic to the entire list uniformly without branching, and return the modified head via dummy.next.',
-      codeSkeleton: `function removeElements(head: ListNode | null, val: number): ListNode | null {
-  const dummy = new ListNode(-1);
-  dummy.next = head;
-  let prev = dummy;
-  let curr = head;
-  while (curr) {
-    if (curr.val === val) {
-      prev.next = curr.next;
-    } else {
-      prev = curr;
+      codeSkeleton: `// Remove all elements with value equal to val
+ListNode* removeElements(ListNode* head, int val) {
+    ListNode dummy(0);
+    dummy.next = head;
+    ListNode* prev = &dummy;
+    ListNode* current = head;
+    while (current) {
+        if (current->val == val) {
+            prev->next = current->next;
+            delete current; // Clean up memory
+            current = prev->next;
+        } else {
+            prev = current;
+            current = current->next;
+        }
     }
-    curr = curr.next;
-  }
-  return dummy.next;
+    return dummy.next;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -605,22 +598,24 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Finding the cycle start node; finding the duplicate number where elements form a cycle of pointers.',
       coreIdea: 'Use Floyd\'s tortoise and hare speed differential to detect a meeting point. Once met, reset one pointer to the head of the list, advance both at a speed of 1 step, and they will meet at the cycle start.',
       whyItWorks: 'Let L be the distance from list head to cycle start. Let C be cycle length. Let the pointers meet at distance X from the cycle start (inside the cycle). The slow pointer travels S = L + k1*C + X steps. The fast pointer travels F = L + k2*C + X steps. Since fast travels twice as fast as slow: F = 2*S => L + k2*C + X = 2*(L + k1*C + X) => L + X = (k2 - 2*k1)*C. This means L = M*C - X = (M - 1)*C + (C - X). The distance C - X is the remaining distance from the meeting point back to the cycle start. This equation shows that the distance L from the head to the cycle start is mathematically equivalent to traversing (M-1) full cycle loops plus the remaining distance C-X from the meeting point. Therefore, if we reset one pointer to the head and leave the other at the meeting point X, and advance both at the same speed of 1 step per iteration, they must meet precisely at the cycle start node.',
-      codeSkeleton: `function detectCycle(head: ListNode | null): ListNode | null {
-  let slow = head;
-  let fast = head;
-  while (fast && fast.next) {
-    slow = slow!.next;
-    fast = fast.next.next;
-    if (slow === fast) {
-      let entry = head;
-      while (entry !== slow) {
-        entry = entry!.next;
-        slow = slow!.next;
-      }
-      return entry;
+      codeSkeleton: `// Detect cycle start node in a linked list
+ListNode* detectCycle(ListNode* head) {
+    if (!head || !head->next) return nullptr;
+    ListNode* slow = head;
+    ListNode* fast = head;
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+        if (slow == fast) {
+            ListNode* entry = head;
+            while (entry != slow) {
+                entry = entry->next;
+                slow = slow->next;
+            }
+            return entry;
+        }
     }
-  }
-  return null;
+    return nullptr;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(1)',
@@ -635,17 +630,14 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Checking list palindrome properties; printing lists backward; or recursive node sorting/reconstruction.',
       coreIdea: 'Utilize the system call stack via recursion to traverse the list in post-order (backward), or use iteration with an auxiliary stack or pointer mutations.',
       whyItWorks: 'Because singly linked lists only have links in the forward direction, traversing them backward iteratively requires reversing them or allocating space. Recursion naturally builds a stack of activation records. As the recursive function calls itself, it advances to the tail. Once the base case is reached, the stack frames unwind in reverse order. This allows us to compare or process nodes from tail to head (e.g. comparing the left pointer, moved forward iteratively, with the right pointer, returning via recursive stack unwinding). However, recursion uses O(N) stack memory. For long lists, this can cause a Stack Overflow. Iteration avoids this by using pointer mutation (like reversing the second half in-place) or an explicit stack array in heap memory.',
-      codeSkeleton: `function isPalindrome(head: ListNode | null): boolean {
-  let left = head;
-  function check(right: ListNode | null): boolean {
+      codeSkeleton: `// Recursive Palindrome Check for Linked List
+bool checkPalindrome(ListNode** left, ListNode* right) {
     if (!right) return true;
-    const isSubPal = check(right.next);
-    if (!isSubPal) return false;
-    const isEqual = left!.val === right.val;
-    left = left!.next;
-    return isEqual;
-  }
-  return check(head);
+    bool isSubPalindrome = checkPalindrome(left, right->next);
+    if (!isSubPalindrome) return false;
+    bool isCurrentEqual = ((*left)->val == right->val);
+    *left = (*left)->next;
+    return isCurrentEqual;
 }`,
       timeComplexity: 'O(N)',
       spaceComplexity: 'O(N) due to stack depth',
@@ -660,15 +652,16 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Finding the meeting node of two intersecting lists; common parent pointer intersections.',
       coreIdea: 'Determine the lengths of both lists, calculate length difference D, advance the longer list pointer by D steps to align them, then advance both at speed 1 until they meet.',
       whyItWorks: 'Let List A have a non-shared head length A, List B have non-shared head length B, and they share a tail of length C. The total lengths are A+C and B+C. The length difference is (A+C) - (B+C) = A-B. By advancing the pointer on the longer list (e.g. List A) by D = |A-B| steps, the remaining distances to the intersection node are equalized: A - D = B. Advancing both at speed 1 from this aligned state guarantees they meet at the intersection node. Alternatively, in the pointer-swapping approach, pointer pA traverses List A and redirects to head B (distance A+C+B), and pB traverses List B and redirects to head A (distance B+C+A). Since A+C+B = B+C+A, they cover the exact same total distance and must meet at the intersection node during the second traversal.',
-      codeSkeleton: `function getIntersectionNode(headA: ListNode | null, headB: ListNode | null): ListNode | null {
-  if (!headA || !headB) return null;
-  let pA: ListNode | null = headA;
-  let pB: ListNode | null = headB;
-  while (pA !== pB) {
-    pA = pA ? pA.next : headB;
-    pB = pB ? pB.next : headA;
-  }
-  return pA;
+      codeSkeleton: `// Find intersection node of two linked lists
+ListNode* getIntersectionNode(ListNode* headA, ListNode* headB) {
+    if (!headA || !headB) return nullptr;
+    ListNode* pA = headA;
+    ListNode* pB = headB;
+    while (pA != pB) {
+        pA = pA ? pA->next : headB;
+        pB = pB ? pB->next : headA;
+    }
+    return pA;
 }`,
       timeComplexity: 'O(N + M)',
       spaceComplexity: 'O(1)',
@@ -682,23 +675,33 @@ function minMeetingRooms(intervals: number[][]): number {
       triggerCue: 'Recognition signals: "subarray", "contiguous", "maximum/minimum of subarray", "longest/shortest subarray satisfying condition", "window of size K". Critical constraint check: "are all elements non-negative?" → if yes, sliding window is safe; if negatives possible → use prefix sum + hashmap instead.',
       coreIdea: 'Two pointers (left, right) define a window. Right pointer expands the window by moving forward. When the window violates the target condition, left pointer shrinks it. Track the optimal (max/min) window size during traversal. Fixed window: right - left + 1 == K always. Variable window: shrink until condition is restored.',
       whyItWorks: '1. Monotonicity guarantee: In a non-negative array, adding an element to the window can only increase (or maintain) the sum, and removing an element can only decrease it. This one-directional property means when the sum exceeds the target, shrinking from the left is guaranteed to help — there is no need to check all possible windows.\n2. Negative numbers failure: Adding a negative element decreases the sum even as the window grows, so "sum > target" no longer means "shrinking left will fix it" — the shrink might make things worse. This is why sliding window requires non-negative values.\n3. O(n) Time Complexity: Each element is added to the window exactly once (when right passes it) and removed at most once (when left passes it). Total operations across the entire traversal are at most 2n, yielding O(n) regardless of how many times the inner loop runs.\n4. Fixed vs Variable: For fixed window (size K), left = right - K + 1 always, so no shrink condition is needed — just slide right and left together. For variable window, left only moves when the condition is violated, relying on the monotonicity guarantee.',
-      codeSkeleton: `// Fixed window (size K)
-left = 0, windowSum = 0, maxSum = 0
-for right in range(n):
-    windowSum += arr[right]
-    if right >= K - 1:
-        maxSum = max(maxSum, windowSum)
-        windowSum -= arr[left]
-        left++
+      codeSkeleton: `// 1. Fixed window (size K)
+int maxSubarraySumOfSizeK(const std::vector<int>& arr, int k) {
+    int n = arr.size();
+    if (n < k) return -1;
+    int windowSum = 0;
+    for (int i = 0; i < k; ++i) windowSum += arr[i];
+    int maxSum = windowSum;
+    for (int i = k; i < n; ++i) {
+        windowSum += arr[i] - arr[i - k];
+        maxSum = std::max(maxSum, windowSum);
+    }
+    return maxSum;
+}
 
-// Variable window (find longest/shortest satisfying condition)
-left = 0, windowSum = 0, result = 0
-for right in range(n):
-    windowSum += arr[right]
-    while windowSum > target:   // shrink condition
-        windowSum -= arr[left]
-        left++
-    result = max(result, right - left + 1)`,
+// 2. Dynamic window (variable size)
+int minSubarrayLen(const std::vector<int>& arr, int target) {
+    int left = 0, windowSum = 0;
+    int minLength = INT_MAX;
+    for (int right = 0; right < arr.size(); ++right) {
+        windowSum += arr[right];
+        while (windowSum >= target) {
+            minLength = std::min(minLength, right - left + 1);
+            windowSum -= arr[left++];
+        }
+    }
+    return minLength == INT_MAX ? 0 : minLength;
+}`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(1) for basic sum problems; O(k) when using a frequency map or deque (e.g. Minimum Window Substring, Sliding Window Maximum)',
       commonMistake: '1. Using sliding window when negatives are present — the correct fallback is prefix sum + hashmap.\n2. For variable window, updating the result BEFORE shrinking the window rather than AFTER, which records an invalid window size.',
@@ -713,46 +716,23 @@ for right in range(n):
       triggerCue: 'Shortest path in unweighted graph; minimum steps/moves to reach target state; level-by-level traversal of nodes; nearest/closest node queries; or multi-source shortest distance computation. Key question: Is the graph unweighted or are all edge weights equal? If yes -> BFS; if weighted -> Dijkstra\'s.',
       coreIdea: 'Utilize a FIFO queue. Enqueue the starting source node(s) and track their visited state. At each step, dequeue the current node, explore all its unvisited neighbors, record their distances, mark them visited immediately on enqueue to prevent duplicate entries, and push them to the queue.',
       whyItWorks: '1. Why BFS guarantees shortest path in unweighted graphs: Nodes are processed in strictly non-decreasing order of distance from the source. The first time a node is dequeued, it is guaranteed to have been reached via the shortest path; any subsequent path to it must contain at least as many or more edges. (Proof by contradiction: If a shorter path existed, the intermediate nodes on that path would have been enqueued earlier, meaning the node would have been dequeued and finalized sooner).\n2. Why this guarantee breaks in weighted graphs: With varying edge weights, "processed first" (fewest hops) no longer implies "reached via shortest total distance". A path with more edges and smaller weights can be shorter than a path with fewer edges and larger weights. This is why Dijkstra\'s uses a priority queue instead of a FIFO queue.\n3. Why multi-source BFS works: Enqueuing multiple sources simultaneously at distance 0 is mathematically equivalent to introducing a virtual super-source node connected to all real sources via directed edges of weight 0. Running a standard BFS from this virtual node yields the correct shortest distance to the nearest real source for all other vertices.',
-      codeSkeleton: `// Single-Source BFS
-function bfsSingleSource(adjList: Map<number, number[]>, start: number): Map<number, number> {
-  const queue: number[] = [start];
-  const dist = new Map<number, number>();
-  dist.set(start, 0);
-
-  while (queue.length > 0) {
-    const node = queue.shift()!;
-    const currentDist = dist.get(node)!;
-    
-    for (const neighbor of adjList.get(node) || []) {
-      if (!dist.has(neighbor)) {
-        dist.set(neighbor, currentDist + 1);
-        queue.push(neighbor); // Marked visited immediately on enqueue
-      }
+      codeSkeleton: `// Breadth-First Search on adjacency list
+void bfs(int start, const std::unordered_map<int, std::vector<int>>& adjList) {
+    std::unordered_set<int> visited;
+    std::queue<int> q;
+    q.push(start);
+    visited.insert(start);
+    while (!q.empty()) {
+        int node = q.front();
+        q.pop();
+        // Process node
+        for (int neighbor : adjList.at(node)) {
+            if (visited.find(neighbor) == visited.end()) {
+                visited.insert(neighbor);
+                q.push(neighbor);
+            }
+        }
     }
-  }
-  return dist;
-}
-
-// Multi-Source BFS
-function bfsMultiSource(adjList: Map<number, number[]>, sources: number[]): Map<number, number> {
-  const queue: number[] = [...sources];
-  const dist = new Map<number, number>();
-  for (const src of sources) {
-    dist.set(src, 0); // Initialize all sources at distance 0
-  }
-
-  while (queue.length > 0) {
-    const node = queue.shift()!;
-    const currentDist = dist.get(node)!;
-
-    for (const neighbor of adjList.get(node) || []) {
-      if (!dist.has(neighbor)) {
-        dist.set(neighbor, currentDist + 1);
-        queue.push(neighbor);
-      }
-    }
-  }
-  return dist;
 }`,
       timeComplexity: 'O(V + E)',
       spaceComplexity: 'O(V)',
@@ -767,64 +747,20 @@ function bfsMultiSource(adjList: Map<number, number[]>, sources: number[]): Map<
       triggerCue: 'Connected components count; verification of path existence between two nodes; cycle detection (directed or undirected); all-paths exploration; or full component traversals. Key distinction: DFS goes deep before wide. Use DFS when you need to exhaustively explore entire paths, and BFS when you need shortest paths.',
       coreIdea: 'Use recursion (implied system stack) or an explicit LIFO stack. Mark the current node as visited, recursively traverse all its unvisited neighbors, and backtrack when no unvisited neighbors remain.',
       whyItWorks: '1. Why DFS correctly finds all connected components: By induction, any node reachable from the start vertex will eventually be visited because DFS recursively explores every adjacent neighbor. Backtracking only occurs when all neighbors are exhausted, ensuring no reachable node is left unvisited unless it was already processed.\n2. Why DFS cycle detection in directed graphs requires a recursion stack ("in-stack") set vs a simple "visited" set: A node in the general "visited" set was seen in some path but might belong to a completed, independent subtree (cross edge). A node in the "in-stack" set is active in the current recursion path. Encountering an adjacent neighbor that is currently "in-stack" indicates a back-edge, proving the existence of a cycle. General "visited" sets alone are insufficient and will yield false positives.\n3. Why DFS time complexity is O(V+E): Each vertex is pushed to the recursion stack exactly once (O(V)), and each edge is examined exactly once from each endpoint (O(E)).',
-      codeSkeleton: `// Recursive DFS
-function dfsRecursive(adjList: Map<number, number[]>, start: number) {
-  const visited = new Set<number>();
-  function traverse(node: number) {
-    visited.add(node);
-    for (const neighbor of adjList.get(node) || []) {
-      if (!visited.has(neighbor)) {
-        traverse(neighbor);
-      }
+      codeSkeleton: `// Depth-First Search on adjacency list
+void dfsHelper(int node, const std::unordered_map<int, std::vector<int>>& adjList, std::unordered_set<int>& visited) {
+    visited.insert(node);
+    // Process node
+    for (int neighbor : adjList.at(node)) {
+        if (visited.find(neighbor) == visited.end()) {
+            dfsHelper(neighbor, adjList, visited);
+        }
     }
-  }
-  traverse(start);
 }
 
-// Iterative DFS (explicit stack)
-function dfsIterative(adjList: Map<number, number[]>, start: number) {
-  const stack: number[] = [start];
-  const visited = new Set<number>();
-  visited.add(start);
-
-  while (stack.length > 0) {
-    const node = stack.pop()!;
-    for (const neighbor of adjList.get(node) || []) {
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor);
-        stack.push(neighbor);
-      }
-    }
-  }
-}
-
-// Directed Graph Cycle Detection (using Recursion Stack)
-function hasCycleDirected(adjList: Map<number, number[]>, V: number): boolean {
-  const visited = new Set<number>();
-  const inStack = new Set<number>();
-
-  function dfs(node: number): boolean {
-    visited.add(node);
-    inStack.add(node);
-
-    for (const neighbor of adjList.get(node) || []) {
-      if (inStack.has(neighbor)) {
-        return true; // Found a back edge!
-      }
-      if (!visited.has(neighbor)) {
-        if (dfs(neighbor)) return true;
-      }
-    }
-    inStack.delete(node); // Backtrack
-    return false;
-  }
-
-  for (let i = 0; i < V; i++) {
-    if (!visited.has(i)) {
-      if (dfs(i)) return true;
-    }
-  }
-  return false;
+void dfs(int start, const std::unordered_map<int, std::vector<int>>& adjList) {
+    std::unordered_set<int> visited;
+    dfsHelper(start, adjList, visited);
 }`,
       timeComplexity: 'O(V + E)',
       spaceComplexity: 'O(V) for the recursion stack',
@@ -839,59 +775,30 @@ function hasCycleDirected(adjList: Map<number, number[]>, V: number): boolean {
       triggerCue: 'Ordering problems with dependencies; course prerequisite structures; task scheduling; build order systems; or any "if A must precede B" condition. Only applicable to Directed Acyclic Graphs (DAGs). If a cycle is present, a topological sort is impossible.',
       coreIdea: 'Two standard formulations: (1) Kahn\'s Algorithm (BFS-based): Compute in-degrees for all nodes, enqueue nodes with in-degree 0. While the queue is not empty, dequeue a node, add it to the ordering, decrement its neighbors\' in-degrees, and enqueue any neighbor whose in-degree becomes 0. (2) DFS-based: Execute DFS, and push a node onto a stack AFTER all its neighbors are fully processed (post-order). Reversing the final stack yields the topological order.',
       whyItWorks: '1. Why Kahn\'s algorithm produces a valid topological order: A node with an in-degree of 0 has no prerequisites, making it safe to schedule first. Once scheduled, removing it reduces the prerequisite counts of its neighbors. Any neighbor whose in-degree falls to 0 has had all its prerequisites met. By induction, every node is scheduled only after its dependencies.\n2. Why Kahn\'s detects cycles: In a graph with a cycle, the nodes within the cycle will never reach an in-degree of 0 because each depends on another node inside the cycle. Consequently, the queue will empty before processing all V vertices. If the final ordered list length is less than V, a cycle exists.\n3. Why DFS post-order gives a reverse topological order: If there is a dependency edge from A to B, DFS will visit and fully process B (and all its descendants) before backtracking to complete A. Thus, B is pushed onto the stack before A. When we reverse the stack, A is guaranteed to appear before B, satisfying the dependency.',
-      codeSkeleton: `// Kahn's Algorithm (BFS-based)
-function kahnsTopologicalSort(V: number, adjList: Map<number, number[]>): number[] {
-  const inDegree = new Array(V).fill(0);
-  for (const [u, neighbors] of adjList.entries()) {
-    for (const v of neighbors) {
-      inDegree[v]++;
+      codeSkeleton: `// Kahn's Algorithm (BFS-based Topological Sort)
+std::vector<int> topoSort(int numNodes, const std::unordered_map<int, std::vector<int>>& adjList) {
+    std::vector<int> inDegree(numNodes, 0);
+    for (const auto& [node, neighbors] : adjList) {
+        for (int neighbor : neighbors) {
+            inDegree[neighbor]++;
+        }
     }
-  }
-
-  const queue: number[] = [];
-  for (let i = 0; i < V; i++) {
-    if (inDegree[i] === 0) queue.push(i);
-  }
-
-  const order: number[] = [];
-  while (queue.length > 0) {
-    const u = queue.shift()!;
-    order.push(u);
-
-    for (const v of adjList.get(u) || []) {
-      inDegree[v]--;
-      if (inDegree[v] === 0) {
-        queue.push(v);
-      }
+    std::queue<int> q;
+    for (int i = 0; i < numNodes; ++i) {
+        if (inDegree[i] == 0) q.push(i);
     }
-  }
-
-  // If order.length !== V, there is a cycle!
-  return order.length === V ? order : [];
-}
-
-// DFS-based Topological Sort
-function dfsTopologicalSort(V: number, adjList: Map<number, number[]>): number[] {
-  const visited = new Set<number>();
-  const stack: number[] = [];
-
-  function dfs(u: number) {
-    visited.add(u);
-    for (const v of adjList.get(u) || []) {
-      if (!visited.has(v)) {
-        dfs(v);
-      }
+    std::vector<int> topoOrder;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        topoOrder.push_back(u);
+        if (adjList.find(u) != adjList.end()) {
+            for (int v : adjList.at(u)) {
+                if (--inDegree[v] == 0) q.push(v);
+            }
+        }
     }
-    stack.push(u); // Post-order: push after processing all neighbors
-  }
-
-  for (let i = 0; i < V; i++) {
-    if (!visited.has(i)) {
-      dfs(i);
-    }
-  }
-
-  return stack.reverse(); // Reverse stack for topological order
+    return topoOrder.size() == numNodes ? topoOrder : std::vector<int>{}; // Cycle check
 }`,
       timeComplexity: 'O(V + E)',
       spaceComplexity: 'O(V)',
@@ -907,41 +814,31 @@ function dfsTopologicalSort(V: number, adjList: Map<number, number[]>): number[]
       coreIdea: 'Maintain parent pointers for elements. Representative elements are roots (parent[x] == x). `find(x)` follows pointers to the root. `union(x, y)` merges the roots of two elements. Implement path compression (point traversed nodes directly to root) and union by rank (attach shorter tree under taller tree) to keep the trees flat.',
       whyItWorks: '1. Why path compression works: In `find(x)`, setting the parent of all traversed nodes directly to the root shortens the tree depth for future searches. This preserves component membership while reducing subsequent `find` operations to O(1) complexity.\n2. Why union by rank prevents degenerate chains: Attaching the root of the tree with smaller depth (rank) to the root of the larger tree ensures tree height does not grow unless two trees of equal rank are merged. This bounds the maximum height of the tree to O(log V) even without path compression.\n3. Why the combination achieves near-O(1) amortized: Combining path compression and union by rank reduces the amortized time complexity per query to O(α(V)), where α is the inverse Ackermann function (which grows so slowly that α(V) <= 4 for all practical inputs). This is effectively O(1) in practice (proved formally using potential functions).\n4. Why Union-Find detects cycles in undirected graphs: Before merging two vertices u and v, we check if `find(u) === find(v)`. If they share a root, they already belong to the same connected component. Adding the edge (u, v) would create an alternative path, which implies a cycle.',
       codeSkeleton: `class UnionFind {
-  private parent: number[];
-  private rank: number[];
-
-  constructor(n: number) {
-    this.parent = Array.from({ length: n }, (_, i) => i);
-    this.rank = new Array(n).fill(0);
-  }
-
-  find(x: number): number {
-    if (this.parent[x] !== x) {
-      this.parent[x] = this.find(this.parent[x]); // Path compression
+    std::vector<int> parent;
+    std::vector<int> rank;
+public:
+    UnionFind(int n) : parent(n), rank(n, 0) {
+        for (int i = 0; i < n; ++i) parent[i] = i;
     }
-    return this.parent[x];
-  }
-
-  union(x: number, y: number): boolean {
-    const rootX = this.find(x);
-    const rootY = this.find(y);
-
-    if (rootX === rootY) {
-      return false; // Already in the same set (cycle detected if adding edge)
+    int find(int i) {
+        if (parent[i] == i) return i;
+        return parent[i] = find(parent[i]); // Path compression
     }
-
-    // Union by rank
-    if (this.rank[rootX] < this.rank[rootY]) {
-      this.parent[rootX] = rootY;
-    } else if (this.rank[rootX] > this.rank[rootY]) {
-      this.parent[rootY] = rootX;
-    } else {
-      this.parent[rootY] = rootX;
-      this.rank[rootX]++;
+    bool unite(int i, int j) {
+        int rootI = find(i);
+        int rootJ = find(j);
+        if (rootI == rootJ) return false;
+        if (rank[rootI] < rank[rootJ]) {
+            parent[rootI] = rootJ;
+        } else if (rank[rootI] > rank[rootJ]) {
+            parent[rootJ] = rootI;
+        } else {
+            parent[rootJ] = rootI;
+            rank[rootI]++;
+        }
+        return true;
     }
-    return true;
-  }
-}`,
+};`,
       timeComplexity: 'O(α(V)) per operation, effectively O(1)',
       spaceComplexity: 'O(V)',
       commonMistake: 'Omitting union by rank and only implementing path compression. Without rank optimizations, a sequence of skewed unions can still degrade the tree structure to a chain of height O(V).',
@@ -955,55 +852,31 @@ function dfsTopologicalSort(V: number, adjList: Map<number, number[]>): number[]
       triggerCue: 'Shortest path in weighted graph; minimum cost path; all edge weights non-negative. Non-negotiable constraint: edge weights must be non-negative. If negative weights are present, Dijkstra\'s is invalid; use Bellman-Ford instead.',
       coreIdea: 'Maintain a min-priority queue storing pairs of `(distance, node)` and a `dist` array initialized to infinity. Start with source at distance 0. Greedily extract the node with the minimum current distance. For each neighbor, if `dist[u] + weight(u, v) < dist[v]`, update `dist[v]` and enqueue the neighbor with the new distance.',
       whyItWorks: '1. Why the greedy choice is safe (no negative weights): When a node u is extracted from the min-heap, its distance `dist[u]` is finalized. Because all edge weights are non-negative, any alternative path from the source to u through unvisited nodes must go through some node v currently in the frontier, where `dist[v] >= dist[u]`. Since weights are non-negative, the total distance of this alternative path must be `>= dist[v] >= dist[u]`. Hence, the current distance is optimal.\n2. Why negative edges break Dijkstra\'s: A negative weight edge can make a path through a "further" node shorter than the currently finalized "closest" path. Because Dijkstra\'s does not reprocess finalized nodes, it will miss the shorter path through the negative edge.\n3. Why lazy deletion (stale heap entries) is correct: Instead of updating priorities inside the heap (which is slow), we allow duplicate entries for the same node in the PQ. When a node is popped, if its recorded distance is greater than the current known minimum (`d > dist[u]`), we simply skip it because it represents a stale, suboptimal path.',
-      codeSkeleton: `interface Edge {
-  node: number;
-  weight: number;
-}
+      codeSkeleton: `struct Edge {
+    int target;
+    int weight;
+};
 
-class MinPriorityQueue<T> {
-  private data: { priority: number; value: T }[] = [];
-
-  enqueue(value: T, priority: number) {
-    this.data.push({ value, priority });
-    this.data.sort((a, b) => a.priority - b.priority); // Simple sort for skeleton purposes
-  }
-
-  dequeue(): { priority: number; value: T } | undefined {
-    return this.data.shift();
-  }
-
-  size(): number {
-    return this.data.length;
-  }
-}
-
-function dijkstra(V: number, adjList: Map<number, Edge[]>, src: number): number[] {
-  const dist = new Array(V).fill(Infinity);
-  dist[src] = 0;
-
-  const pq = new MinPriorityQueue<number>();
-  pq.enqueue(src, 0);
-
-  const visited = new Set<number>();
-
-  while (pq.size() > 0) {
-    const { value: u, priority: d } = pq.dequeue()!;
-
-    if (visited.has(u)) continue; // Lazy deletion
-    visited.add(u);
-
-    for (const edge of adjList.get(u) || []) {
-      const v = edge.node;
-      const weight = edge.weight;
-
-      if (dist[u] + weight < dist[v]) {
-        dist[v] = dist[u] + weight;
-        pq.enqueue(v, dist[v]);
-      }
+// Dijkstra's Shortest Path Algorithm
+std::vector<int> dijkstra(int start, int numNodes, const std::unordered_map<int, std::vector<Edge>>& adjList) {
+    std::vector<int> dist(numNodes, INT_MAX);
+    dist[start] = 0;
+    using pii = std::pair<int, int>;
+    std::priority_queue<pii, std::vector<pii>, std::greater<pii>> pq;
+    pq.push({0, start});
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+        if (d > dist[u]) continue;
+        if (adjList.find(u) == adjList.end()) continue;
+        for (const auto& edge : adjList.at(u)) {
+            if (dist[u] + edge.weight < dist[edge.target]) {
+                dist[edge.target] = dist[u] + edge.weight;
+                pq.push({dist[edge.target], edge.target});
+            }
+        }
     }
-  }
-
-  return dist;
+    return dist;
 }`,
       timeComplexity: 'O((V + E) log V) with binary heap',
       spaceComplexity: 'O(V + E)',
@@ -1018,30 +891,30 @@ function dijkstra(V: number, adjList: Map<number, Edge[]>, src: number): number[
       triggerCue: 'Divide nodes into two groups; check if a graph is bipartite; can nodes be colored using 2 colors; no adjacent nodes share the same color; or conflict detection in scheduling. Key theorem: A graph is bipartite if and only if it contains no odd-length cycles.',
       coreIdea: 'Perform BFS or DFS. Assign color 0 to the source node, color 1 to all its neighbors, color 0 to their neighbors, and so on. If we attempt to color a neighbor that has already been colored, and its color matches the current node\'s color, the graph contains an odd-length cycle and is not bipartite.',
       whyItWorks: '1. Why 2-coloring detects bipartiteness: A graph is bipartite if we can partition its vertices into two independent sets such that all edges cross between the sets. BFS-based 2-coloring assigns alternating colors layer by layer. If an odd-length cycle exists, it will eventually force two adjacent nodes to be assigned the same color, generating a conflict that is detected during neighbor validation.\n2. Why we must run BFS/DFS from every unvisited node: A graph may consist of multiple disconnected components. Running the traversal from a single source only checks the reachable component; we must check all components independently to guarantee the entire graph is bipartite.',
-      codeSkeleton: `function isBipartite(V: number, adjList: Map<number, number[]>): boolean {
-  const colors = new Array(V).fill(-1); // -1: uncolored, 0: Color A, 1: Color B
-
-  for (let i = 0; i < V; i++) {
-    if (colors[i] !== -1) continue; // Already colored
-
-    const queue: number[] = [i];
-    colors[i] = 0;
-
-    while (queue.length > 0) {
-      const u = queue.shift()!;
-
-      for (const v of adjList.get(u) || []) {
-        if (colors[v] === -1) {
-          colors[v] = 1 - colors[u]; // Alternate color
-          queue.push(v);
-        } else if (colors[v] === colors[u]) {
-          return false; // Odd cycle conflict
+      codeSkeleton: `// Check if graph is bipartite using BFS
+bool isBipartite(int numNodes, const std::unordered_map<int, std::vector<int>>& adjList) {
+    std::vector<int> color(numNodes, -1);
+    for (int i = 0; i < numNodes; ++i) {
+        if (color[i] == -1) {
+            std::queue<int> q;
+            q.push(i);
+            color[i] = 0;
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+                if (adjList.find(u) == adjList.end()) continue;
+                for (int v : adjList.at(u)) {
+                    if (color[v] == -1) {
+                        color[v] = 1 - color[u];
+                        q.push(v);
+                    } else if (color[v] == color[u]) {
+                        return false;
+                    }
+                }
+            }
         }
-      }
     }
-  }
-
-  return true;
+    return true;
 }`,
       timeComplexity: 'O(V + E)',
       spaceComplexity: 'O(V)',
@@ -1056,56 +929,18 @@ function dijkstra(V: number, adjList: Map<number, Edge[]>, src: number): number[
       triggerCue: 'Grid-based traversals; 2D matrix paths; island counting; connected region tracking; flood fill; computing sizes of connected grid areas; or surrounded region capturing. Key model: Cells are nodes, and adjacent cells are implicit edges.',
       coreIdea: 'Perform BFS or DFS on a 2D grid. Iterate through each cell. When an unvisited land cell is found, run a traversal to visit all reachable adjacent land cells (moving in 4 or 8 directions). Mark cells visited either by mutating the grid value in-place (e.g., changing land \'1\' to water \'0\') or by using a 2D boolean visited array.',
       whyItWorks: '1. Why grid traversal maps to graph traversal: A grid is an implicit graph. Cells represent vertices, and edge relations are dynamically resolved using coordinate shifts (e.g., `[(0,1),(0,-1),(1,0),(-1,0)]`). This avoids building an explicit adjacency list.\n2. Why in-place marking is correct: Modifying a cell value directly in the grid (e.g. flipping \'1\' to \'0\') acts as a visited flag. Since the cell no longer matches the traversal condition, it will never be enqueued or processed again, saving O(R * C) auxiliary space.\n3. Why multi-source BFS is optimal for distance fields: Enqueuing all target cells simultaneously at distance 0 and propagating outward computes the minimum distance to the nearest target cell for all grid locations in a single O(R * C) pass. Running separate BFS operations from each source individually would take O(S * R * C) time, which is highly redundant.',
-      codeSkeleton: `// DFS Variant (Recursive)
-function dfsGrid(grid: string[][], r: number, c: number) {
-  const rows = grid.length;
-  const cols = grid[0].length;
-  
-  if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] !== '1') {
-    return;
-  }
-  
-  grid[r][c] = '0'; // Mark visited in-place
-  
-  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  for (const [dr, dc] of dirs) {
-    dfsGrid(grid, r + dr, c + dc);
-  }
-}
-
-// Multi-Source BFS on Grid
-function bfsGridMultiSource(grid: number[][]): number[][] {
-  const rows = grid.length;
-  const cols = grid[0].length;
-  const dist = Array.from({ length: rows }, () => new Array(cols).fill(Infinity));
-  const queue: [number, number][] = [];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (grid[r][c] === 0) {
-        dist[r][c] = 0;
-        queue.push([r, c]); // Enqueue all sources at distance 0
-      }
+      codeSkeleton: `// Island Traversal using recursive DFS
+void numIslandsDFS(std::vector<std::vector<char>>& grid, int r, int c) {
+    int numRows = grid.size();
+    int numCols = grid[0].size();
+    if (r < 0 || r >= numRows || c < 0 || c >= numCols || grid[r][c] == '0') {
+        return;
     }
-  }
-
-  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  while (queue.length > 0) {
-    const [r, c] = queue.shift()!;
-
-    for (const [dr, dc] of dirs) {
-      const nr = r + dr;
-      const nc = c + dc;
-
-      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-        if (dist[r][c] + 1 < dist[nr][nc]) {
-          dist[nr][nc] = dist[r][c] + 1;
-          queue.push([nr, nc]);
-        }
-      }
-    }
-  }
-  return dist;
+    grid[r][c] = '0'; // Mark as visited
+    numIslandsDFS(grid, r + 1, c);
+    numIslandsDFS(grid, r - 1, c);
+    numIslandsDFS(grid, r, c + 1);
+    numIslandsDFS(grid, r, c - 1);
 }`,
       timeComplexity: 'O(m * n) where m and n are the grid dimensions',
       spaceComplexity: 'O(m * n) for the visited array or recursion stack; O(1) auxiliary if mutating in-place',
@@ -1120,35 +955,27 @@ function bfsGridMultiSource(grid: number[][]): number[][] {
       triggerCue: 'Shortest path in weighted graph where negative edge weights may exist; negative cycle detection; or constraint propagation. Use this when Dijkstra\'s is disqualified due to negative edge weights.',
       coreIdea: 'Initialize distances to infinity (source to 0). Relax all E edges V-1 times. To detect negative cycles, perform one additional (V-th) relaxation pass. If any distance is updated during this V-th pass, a negative cycle exists.',
       whyItWorks: '1. Why V-1 iterations are sufficient: In a graph with V vertices, the shortest simple path between any two vertices can contain at most V-1 edges. Each iteration of the relaxation loop is guaranteed to find the shortest path of length at most k edges (where k is the iteration count). Thus, after V-1 passes, all shortest paths are finalized unless negative cycles are present.\n2. Why the V-th iteration detects negative cycles: If a node\'s distance can still be decreased after V-1 relaxations, there must exist a path of length >= V edges that is shorter than any path of length < V. This is only possible if the path contains a cycle whose sum of edge weights is negative, allowing infinite distance reductions by traversing it recursively.\n3. Why Bellman-Ford runs in O(VE) time: Because the algorithm does not rely on greedy selection or priority queues, it must relax every single edge globally in each iteration. This results in V-1 passes * E edges = O(VE) runtime.',
-      codeSkeleton: `interface EdgeListRepresentation {
-  u: number;
-  v: number;
-  weight: number;
-}
+      codeSkeleton: `struct Edge {
+    int src, dest, weight;
+};
 
-function bellmanFord(V: number, edges: EdgeListRepresentation[], src: number): { dist: number[]; hasNegativeCycle: boolean } {
-  const dist = new Array(V).fill(Infinity);
-  dist[src] = 0;
-
-  // Relax all edges V - 1 times
-  for (let i = 1; i <= V - 1; i++) {
-    for (const { u, v, weight } of edges) {
-      if (dist[u] !== Infinity && dist[u] + weight < dist[v]) {
-        dist[v] = dist[u] + weight;
-      }
+// Bellman-Ford Shortest Path Algorithm
+std::vector<int> bellmanFord(int start, int numNodes, const std::vector<Edge>& edges) {
+    std::vector<int> dist(numNodes, INT_MAX);
+    dist[start] = 0;
+    for (int i = 1; i <= numNodes - 1; ++i) {
+        for (const auto& edge : edges) {
+            if (dist[edge.src] != INT_MAX && dist[edge.src] + edge.weight < dist[edge.dest]) {
+                dist[edge.dest] = dist[edge.src] + edge.weight;
+            }
+        }
     }
-  }
-
-  // V-th iteration to detect negative cycles
-  let hasNegativeCycle = false;
-  for (const { u, v, weight } of edges) {
-    if (dist[u] !== Infinity && dist[u] + weight < dist[v]) {
-      hasNegativeCycle = true;
-      break;
+    for (const auto& edge : edges) {
+        if (dist[edge.src] != INT_MAX && dist[edge.src] + edge.weight < dist[edge.dest]) {
+            return {}; // Negative cycle
+        }
     }
-  }
-
-  return { dist, hasNegativeCycle };
+    return dist;
 }`,
       timeComplexity: 'O(V * E)',
       spaceComplexity: 'O(V)',
@@ -1163,66 +990,25 @@ function bellmanFord(V: number, edges: EdgeListRepresentation[], src: number): {
       triggerCue: 'Connect all vertices with minimum total edge weight; build networks (cabling, pipes) at minimum cost; find minimum spanning trees. Key trait: Connecting all V vertices using exactly V-1 edges with minimum total cost.',
       coreIdea: 'Two main algorithms: (1) Kruskal\'s: Sort all E edges by weight. Greedily select the cheapest edge. If adding the edge does not create a cycle (validate using Union-Find), append it to the MST. Repeat until V-1 edges are selected. (2) Prim\'s: Start from a source node. Maintain a min-heap of candidate edges connecting visited vertices to unvisited vertices. Greedily add the minimum weight frontier edge, marking new vertices visited.',
       whyItWorks: '1. Why the cut property guarantees correctness: For any partition (cut) of vertices, the minimum weight edge that crosses the cut must belong to some MST of the graph. Prim\'s expands the cut around the growing tree, greedily choosing the cheapest frontier edge. Kruskal\'s considers cuts globally by sorting edges.\n2. Why Kruskal\'s DSU check works: Adding an edge (u, v) creates a cycle if and only if u and v are already in the same connected component. The Union-Find `find(u) === find(v)` query checks this condition in O(α(V)) time.\n3. Why Prim\'s differs from Dijkstra\'s: Dijkstra\'s minimizes cumulative distance from a source (`dist[u] + weight`); Prim\'s minimizes only the immediate edge cost to connect an unvisited node to the existing tree (`weight`). The PQ key in Prim\'s is the individual edge weight, not the cumulative distance.',
-      codeSkeleton: `interface EdgeMST {
-  u: number;
-  v: number;
-  weight: number;
-}
-
-// 1. Kruskal\'s Algorithm (Sort + DSU)
-function kruskalsMST(V: number, edges: EdgeMST[]): { mst: EdgeMST[]; totalWeight: number } {
-  edges.sort((a, b) => a.weight - b.weight);
-
-  const uf = new UnionFind(V); // Assuming UnionFind class from DSU pattern
-  const mst: EdgeMST[] = [];
-  let totalWeight = 0;
-
-  for (const edge of edges) {
-    if (uf.union(edge.u, edge.v)) {
-      mst.push(edge);
-      totalWeight += edge.weight;
-      if (mst.length === V - 1) break;
+      codeSkeleton: `struct Edge {
+    int src, dest, weight;
+    bool operator<(const Edge& other) const {
+        return weight < other.weight;
     }
-  }
+};
 
-  return { mst, totalWeight };
-}
-
-// 2. Prim\'s Algorithm (Min-Heap based)
-interface AdjMSTNode {
-  node: number;
-  weight: number;
-}
-
-function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number = 0): number {
-  const pq = new MinPriorityQueue<number>();
-  const key = new Array(V).fill(Infinity);
-  const visited = new Set<number>();
-
-  key[start] = 0;
-  pq.enqueue(start, 0);
-
-  let totalWeight = 0;
-
-  while (pq.size() > 0) {
-    const { value: u, priority: w } = pq.dequeue()!;
-
-    if (visited.has(u)) continue;
-    visited.add(u);
-    totalWeight += w;
-
-    for (const neighbor of adjList.get(u) || []) {
-      const v = neighbor.node;
-      const weight = neighbor.weight;
-
-      if (!visited.has(v) && weight < key[v]) {
-        key[v] = weight;
-        pq.enqueue(v, weight); // Prim's stores direct weight, not path sum!
-      }
+// Kruskal's Algorithm for Minimum Spanning Tree
+std::vector<Edge> kruskal(int numNodes, std::vector<Edge>& edges) {
+    std::sort(edges.begin(), edges.end());
+    UnionFind uf(numNodes);
+    std::vector<Edge> mst;
+    for (const auto& edge : edges) {
+        if (uf.unite(edge.src, edge.dest)) {
+            mst.push_back(edge);
+            if (mst.size() == numNodes - 1) break;
+        }
     }
-  }
-
-  return totalWeight;
+    return mst;
 }`,
       timeComplexity: 'Kruskal\'s: O(E log E) or O(E log V); Prim\'s: O((V + E) log V) with binary heap',
       spaceComplexity: 'O(V + E)',
@@ -1239,46 +1025,29 @@ function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number =
       coreIdea: 'Three structural visit orderings: preorder (root->left->right), inorder (left->root->right), postorder (left->right->root). While recursive implementations are straightforward, iterative traversals use an explicit stack to simulate the call stack. For iterative inorder, go left as far as possible (pushing to stack), process the node on pop, and then move to its right child.',
       whyItWorks: '1. Why inorder traversal of a BST produces a sorted sequence: The BST property dictates that for any node, all values in its left subtree are strictly less than the node\'s value, and all values in its right subtree are strictly greater. Inorder traversal recursively visits the left subtree first (collecting all smaller values), then the node itself, and finally the right subtree (collecting all larger values). By induction on the subtree size, this ordering preserves the sorted order across all keys.\n2. Why iterative inorder uses a stack + current pointer pattern (rather than pre-pushing all nodes): Pre-pushing all nodes would require O(N) upfront work and space before processing the first node. The stack + current pointer pattern dynamically mirrors the recursive runtime call stack: pushing nodes as we "go left" until hitting null, popping to "process", and moving to the right child to initiate the next left-descending traversal.\n3. Why postorder is the natural choice for deletion/freeing nodes: To safely delete or free a node in memory, its children must be deleted first to prevent orphans or memory leaks. Postorder (left->right->root) guarantees that child subtrees are completely visited and processed before their parent node is visited.',
       codeSkeleton: `// 1. Recursive Traversals
-function preorder(root: TreeNode | null, res: number[] = []): number[] {
-  if (!root) return res;
-  res.push(root.val);
-  preorder(root.left, res);
-  preorder(root.right, res);
-  return res;
-}
-
-function inorder(root: TreeNode | null, res: number[] = []): number[] {
-  if (!root) return res;
-  inorder(root.left, res);
-  res.push(root.val);
-  inorder(root.right, res);
-  return res;
-}
-
-function postorder(root: TreeNode | null, res: number[] = []): number[] {
-  if (!root) return res;
-  postorder(root.left, res);
-  postorder(root.right, res);
-  res.push(root.val);
-  return res;
+void preorder(TreeNode* root, std::vector<int>& result) {
+    if (!root) return;
+    result.push_back(root->val);
+    preorder(root->left, result);
+    preorder(root->right, result);
 }
 
 // 2. Iterative Inorder Traversal
-function inorderIterative(root: TreeNode | null): number[] {
-  const res: number[] = [];
-  const stack: TreeNode[] = [];
-  let current: TreeNode | null = root;
-
-  while (current !== null || stack.length > 0) {
-    while (current !== null) {
-      stack.push(current);
-      current = current.left; // Go left as far as possible
+std::vector<int> inorderTraversal(TreeNode* root) {
+    std::vector<int> result;
+    std::stack<TreeNode*> s;
+    TreeNode* curr = root;
+    while (curr != nullptr || !s.empty()) {
+        while (curr != nullptr) {
+            s.push(curr);
+            curr = curr->left;
+        }
+        curr = s.top();
+        s.pop();
+        result.push_back(curr->val);
+        curr = curr->right;
     }
-    current = stack.pop()!;
-    res.push(current.val);    // Process node
-    current = current.right;  // Go right
-  }
-  return res;
+    return result;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(h) where h is tree height (O(log n) balanced, O(n) worst case skewed)',
@@ -1293,50 +1062,25 @@ function inorderIterative(root: TreeNode | null): number[] {
       triggerCue: 'Level by level node processing; level order traversal; right/left side view; zigzag tree traversal; average value of nodes at each level; maximum width of tree; or connecting next right pointers. Key signature: Any query that inspects or aggregates nodes sharing the same depth.',
       coreIdea: 'Use a queue-based Breadth-First Search (BFS). Before starting the processing loop for a level, snapshot the current size of the queue. This size represents the exact count of nodes belonging to that specific level. Process exactly that many nodes, enqueuing their non-null children as you go.',
       whyItWorks: '1. Why snapshotting queue size at level start correctly separates levels: At the start of processing level k, the queue contains exactly the nodes at level k (since all nodes from level k-1 were dequeued in the previous iteration, and only their children were enqueued). By running the inner loop exactly `size` times, we process all level-k nodes before evaluating the queue size again, preventing nodes of level k+1 from bleeding into the current level\'s processing.\n2. Why this approach is cleaner than null-sentinels: Null-sentinel designs require adding a null marker at the end of each level and re-adding it when encountered. This introduces edge cases (e.g., infinite loops on empty trees). The size-snapshot method requires no special sentinel values.\n3. Why right side view is the last node processed at each level: Since BFS processes children from left to right within each level, the last node dequeued in the level-processing loop is the rightmost node of that level, which is the only node visible from the right side.',
-      codeSkeleton: `function levelOrder(root: TreeNode | null): number[][] {
-  const result: number[][] = [];
-  if (!root) return result;
-
-  const queue: TreeNode[] = [root];
-
-  while (queue.length > 0) {
-    const levelSize = queue.length; // Snapshot level size
-    const currentLevel: number[] = [];
-
-    for (let i = 0; i < levelSize; i++) {
-      const node = queue.shift()!;
-      currentLevel.push(node.val);
-
-      if (node.left) queue.push(node.left);
-      if (node.right) queue.push(node.right);
+      codeSkeleton: `// Binary Tree Level Order Traversal
+std::vector<std::vector<int>> levelOrder(TreeNode* root) {
+    if (!root) return {};
+    std::vector<std::vector<int>> result;
+    std::queue<TreeNode*> q;
+    q.push(root);
+    while (!q.empty()) {
+        int size = q.size();
+        std::vector<int> currentLevel;
+        for (int i = 0; i < size; ++i) {
+            TreeNode* curr = q.front();
+            q.pop();
+            currentLevel.push_back(curr->val);
+            if (curr->left) q.push(curr->left);
+            if (curr->right) q.push(curr->right);
+        }
+        result.push_back(currentLevel);
     }
-    result.push(currentLevel);
-  }
-  return result;
-}
-
-// Right Side View Variant
-function rightSideView(root: TreeNode | null): number[] {
-  const result: number[] = [];
-  if (!root) return result;
-
-  const queue: TreeNode[] = [root];
-
-  while (queue.length > 0) {
-    const levelSize = queue.length;
-
-    for (let i = 0; i < levelSize; i++) {
-      const node = queue.shift()!;
-      // The last node processed at this level is the rightmost node
-      if (i === levelSize - 1) {
-        result.push(node.val);
-      }
-
-      if (node.left) queue.push(node.left);
-      if (node.right) queue.push(node.right);
-    }
-  }
-  return result;
+    return result;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(w) where w is the maximum width of the tree (up to O(n) for a complete binary tree\'s bottom level)',
@@ -1351,59 +1095,22 @@ function rightSideView(root: TreeNode | null): number[] {
       triggerCue: 'Construct a binary tree from preorder/postorder and inorder traversals; serialize and deserialize a binary tree; build a tree from a flat traversal representation; or reconstruct a tree structure. Key signature: Rebuilding trees from serialized sequences.',
       coreIdea: 'For reconstruction from traversals (e.g., preorder + inorder): The first element of the preorder array is always the root. Locate this root\'s index in the inorder array. All elements to the left of this index belong to the left subtree, and all elements to the right belong to the right subtree. Recurse. For serialization/deserialization, use a preorder traversal with null markers to explicitly capture leaf bounds.',
       whyItWorks: '1. Why preorder + inorder uniquely determines a binary tree: Preorder traversal provides the sequence of roots (first element of any slice is the subtree root), while inorder traversal provides the division of left and right subtrees. Finding the root\'s index in the inorder array reveals the exact size of the left and right subtrees, allowing us to split the preorder array correctly. Preorder + postorder is insufficient because without inorder size splits, one cannot distinguish if a node with a single child has a left or a right child.\n2. Why a HashMap is required for inorder index lookups: A naive linear scan to find the root\'s index in the inorder array takes O(N) time per recursion level, degrading the overall runtime to O(N²). Pre-populating a HashMap with `{ value: index }` reduces each lookup to O(1), achieving a linear O(N) total construction time.\n3. Why serialize with null markers allows unambiguous reconstruction: Storing null markers explicitly denotes empty children. Without them, a flat sequence of values is ambiguous (e.g., [1, 2] could be 1 with left child 2, or 1 with right child 2). Null markers represent the leaf boundaries, enabling a single-pass queue-based reconstruction.',
-      codeSkeleton: `function buildTree(preorder: number[], inorder: number[]): TreeNode | null {
-  const inMap = new Map<number, number>();
-  inorder.forEach((val, idx) => inMap.set(val, idx)); // O(1) lookup map
-
-  let preIdx = 0;
-
-  function helper(left: number, right: number): TreeNode | null {
-    if (left > right) return null;
-
-    const rootVal = preorder[preIdx++];
-    const root = new TreeNode(rootVal);
-    const mid = inMap.get(rootVal)!;
-
-    root.left = helper(left, mid - 1);
-    root.right = helper(mid + 1, right);
+      codeSkeleton: `// Construct Binary Tree from Preorder and Inorder Traversal
+TreeNode* buildTreeHelper(const std::vector<int>& preorder, int& preIdx, int inStart, int inEnd, const std::unordered_map<int, int>& inMap) {
+    if (inStart > inEnd) return nullptr;
+    int rootVal = preorder[preIdx++];
+    TreeNode* root = new TreeNode(rootVal);
+    int inIdx = inMap.at(rootVal);
+    root->left = buildTreeHelper(preorder, preIdx, inStart, inIdx - 1, inMap);
+    root->right = buildTreeHelper(preorder, preIdx, inIdx + 1, inEnd, inMap);
     return root;
-  }
-
-  return helper(0, inorder.length - 1);
 }
 
-// Serialization / Deserialization
-function serialize(root: TreeNode | null): string {
-  const result: string[] = [];
-  function traverse(node: TreeNode | null) {
-    if (!node) {
-      result.push('#'); // Null marker
-      return;
-    }
-    result.push(node.val.toString());
-    traverse(node.left);
-    traverse(node.right);
-  }
-  traverse(root);
-  return result.join(',');
-}
-
-function deserialize(data: string): TreeNode | null {
-  const nodes = data.split(',');
-  let idx = 0;
-
-  function build(): TreeNode | null {
-    if (idx >= nodes.length) return null;
-    const val = nodes[idx++];
-    if (val === '#') return null;
-
-    const node = new TreeNode(parseInt(val, 10));
-    node.left = build();
-    node.right = build();
-    return node;
-  }
-
-  return build();
+TreeNode* buildTree(const std::vector<int>& preorder, const std::vector<int>& inorder) {
+    std::unordered_map<int, int> inMap;
+    for (int i = 0; i < inorder.size(); ++i) inMap[inorder[i]] = i;
+    int preIdx = 0;
+    return buildTreeHelper(preorder, preIdx, 0, inorder.size() - 1, inMap);
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(n) for HashMap index mapping and recursion call stack',
@@ -1418,21 +1125,13 @@ function deserialize(data: string): TreeNode | null {
       triggerCue: 'Find lowest common ancestor; LCA; common ancestor of two nodes; compute distance between two nodes; or locate the path connecting two nodes. Key signature: Finding the deepest node in a tree where two distinct paths diverge.',
       coreIdea: 'Use recursive DFS. If the current node is null, or matches node p, or matches node q, return the current node. Recurse left and right. If both subtrees return non-null values, the current node is the LCA. If only one returns a non-null value, propagate that non-null value upward.',
       whyItWorks: '1. Why both subtrees returning non-null proves the current node is the LCA: If recursing left yields one of the target nodes and recursing right yields the other, it means the targets are split between the left and right subtrees. The current node is the highest point where their paths intersect, making it the lowest common ancestor by definition.\n2. Why returning the one non-null result handles ancestor-descendant relationships: If p is an ancestor of q, the traversal will encounter p first. In this case, p itself is the LCA. The recursion returns p immediately, and the check on the other branch returns null. The non-null result (p) propagates up, which is correct since p contains q as a descendant.\n3. Why single-pass post-order DFS is optimal: To confirm that a node is the LCA, we must potentially inspect all subtrees to find the targets. A post-order traversal allows us to evaluate the state of both subtrees before making a decision at the parent node, completing the search in a single O(N) pass.',
-      codeSkeleton: `function lowestCommonAncestor(root: TreeNode | null, p: TreeNode, q: TreeNode): TreeNode | null {
-  if (!root || root === p || root === q) {
-    return root; // Base case: return if root is null, p, or q
-  }
-
-  const left = lowestCommonAncestor(root.left, p, q);
-  const right = lowestCommonAncestor(root.right, p, q);
-
-  // If both left and right return non-null, this root is the LCA
-  if (left !== null && right !== null) {
-    return root;
-  }
-
-  // Otherwise, return the non-null side
-  return left !== null ? left : right;
+      codeSkeleton: `// Lowest Common Ancestor of a Binary Tree
+TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+    if (!root || root == p || root == q) return root;
+    TreeNode* left = lowestCommonAncestor(root->left, p, q);
+    TreeNode* right = lowestCommonAncestor(root->right, p, q);
+    if (left && right) return root;
+    return left ? left : right;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1448,36 +1147,25 @@ function deserialize(data: string): TreeNode | null {
       coreIdea: 'For root-to-leaf paths, pass the remaining target sum down to the children and evaluate at the leaf. For any-to-any paths (such as Maximum Path Sum), calculate the maximum path sum through each node as a turning point (`val + max(0, leftGain) + max(0, rightGain)`). Track the global maximum while returning only the single-branch contribution (`val + max(leftGain, rightGain)`) to parent calls.',
       whyItWorks: '1. Why maximum path sum requires updating a global variable: An arbitrary path in a tree can have only one highest node (where it bends). We cannot return a full branching path (left + root + right) upward, as a parent node can only extend one child branch without branching. Therefore, at each node, we compute the maximum possible path that turns at that node, update a global max, and return only the best single-branch extension upward.\n2. Why clamping branch gains to 0 is correct: If a child subtree yields a negative sum, including it would reduce our path sum. Clamping negative gains to 0 (`max(0, gain)`) is equivalent to choosing to truncate the path at the current node instead of extending it into the negative subtree.\n3. Why root-to-leaf path sum passes the remaining target down: By subtracting the current node\'s value from the target sum as we descend, the check at the leaf simplifies to `leaf.val === targetSum`. This avoids having to track a running path history in memory.',
       codeSkeleton: `// 1. Root-to-Leaf Path Sum
-function hasPathSum(root: TreeNode | null, targetSum: number): boolean {
-  if (!root) return false;
-  if (!root.left && !root.right) {
-    return root.val === targetSum; // Leaf node check
-  }
-  return hasPathSum(root.left, targetSum - root.val) || 
-         hasPathSum(root.right, targetSum - root.val);
+bool hasPathSum(TreeNode* root, int targetSum) {
+    if (!root) return false;
+    if (!root->left && !root->right) return root->val == targetSum;
+    return hasPathSum(root->left, targetSum - root->val) || hasPathSum(root->right, targetSum - root->val);
 }
 
-// 2. Any-to-Any Maximum Path Sum
-function maxPathSum(root: TreeNode | null): number {
-  let globalMax = -Infinity;
+// 2. Binary Tree Maximum Path Sum
+int maxPathSumHelper(TreeNode* root, int& maxSum) {
+    if (!root) return 0;
+    int leftMax = std::max(0, maxPathSumHelper(root->left, maxSum));
+    int rightMax = std::max(0, maxPathSumHelper(root->right, maxSum));
+    maxSum = std::max(maxSum, root->val + leftMax + rightMax);
+    return root->val + std::max(leftMax, rightMax);
+}
 
-  function maxGain(node: TreeNode | null): number {
-    if (!node) return 0;
-
-    // Clamp negative gains to 0
-    const leftGain = Math.max(0, maxGain(node.left));
-    const rightGain = Math.max(0, maxGain(node.right));
-
-    // Price of path turning at this node
-    const priceNewPath = node.val + leftGain + rightGain;
-    globalMax = Math.max(globalMax, priceNewPath);
-
-    // Return the max branch gain to parent
-    return node.val + Math.max(leftGain, rightGain);
-  }
-
-  maxGain(root);
-  return globalMax;
+int maxPathSum(TreeNode* root) {
+    int maxSum = INT_MIN;
+    maxPathSumHelper(root, maxSum);
+    return maxSum;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1493,42 +1181,18 @@ function maxPathSum(root: TreeNode | null): number {
       coreIdea: 'Compute heights recursively as `max(leftHeight, rightHeight) + 1`. At each node during this post-order traversal, the candidate diameter is `leftHeight + rightHeight`. Keep track of the maximum candidate diameter seen. For balanced check, return `-1` immediately if any subtree is unbalanced, avoiding redundant height checks.',
       whyItWorks: '1. Why diameter does not always pass through the root: In a tree with a deeply skewed left subtree that branches, the longest path might reside entirely within that left subtree. By calculating the diameter candidate `leftHeight + rightHeight` at every single node, we ensure we evaluate all possible bending points, not just the root.\n2. Why the balance check can be optimized with a `-1` sentinel: A naive balance check calls height at every node, resulting in O(N²) time. By returning `-1` as a sentinel value from our height helper when an imbalance is found, we propagate this failure up the call stack. Any parent node receiving `-1` from a child immediately returns `-1` without computing heights, resulting in O(N) time.\n3. Height definition variance: The height of a tree can be defined by the number of nodes or the number of edges. LeetCode defines the diameter as the number of edges on the longest path, which is equal to `leftHeight + rightHeight` if height is defined as the maximum edge depth to a leaf.',
       codeSkeleton: `// Height and Diameter in one pass
-function treeDiameter(root: TreeNode | null): number {
-  let maxDiameter = 0;
-
-  function dfs(node: TreeNode | null): number {
-    if (!node) return 0; // Height of null is 0
-
-    const left = dfs(node.left);
-    const right = dfs(node.right);
-
-    maxDiameter = Math.max(maxDiameter, left + right); // Edge count diameter
-    return Math.max(left, right) + 1;                  // Return height
-  }
-
-  dfs(root);
-  return maxDiameter;
+int getDiameter(TreeNode* root, int& diameter) {
+    if (!root) return 0;
+    int leftHeight = getDiameter(root->left, diameter);
+    int rightHeight = getDiameter(root->right, diameter);
+    diameter = std::max(diameter, leftHeight + rightHeight);
+    return 1 + std::max(leftHeight, rightHeight);
 }
 
-// Height-Balanced Tree Check (O(N) using -1 sentinel)
-function isBalanced(root: TreeNode | null): boolean {
-  function check(node: TreeNode | null): number {
-    if (!node) return 0;
-
-    const leftHeight = check(node.left);
-    if (leftHeight === -1) return -1; // Propagate imbalance
-
-    const rightHeight = check(node.right);
-    if (rightHeight === -1) return -1; // Propagate imbalance
-
-    if (Math.abs(leftHeight - rightHeight) > 1) {
-      return -1; // Imbalance detected at current node
-    }
-
-    return Math.max(leftHeight, rightHeight) + 1;
-  }
-
-  return check(root) !== -1;
+int diameterOfBinaryTree(TreeNode* root) {
+    int diameter = 0;
+    getDiameter(root, diameter);
+    return diameter;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1544,35 +1208,21 @@ function isBalanced(root: TreeNode | null): boolean {
       coreIdea: 'For same tree, check if both are null (true), one is null (false), or values mismatch (false), then recurse on their corresponding children. For symmetric tree, run a mirror comparison on the root\'s left and right subtrees, comparing `left.left` with `right.right` and `left.right` with `right.left`.',
       whyItWorks: '1. Why symmetric tree compares mirror pairs: Symmetry requires that if we fold the tree along the middle, the left and right halves match. Thus, the leftmost descendant of the left child must match the rightmost descendant of the right child (`left.left === right.right`), and the inner descendants must match (`left.right === right.left`). Comparing `left.left` with `right.left` would check for equality, not symmetry.\n2. Why naive subtree check is O(M*N) and how it can be optimized: The naive subtree check runs a `isSameTree` check at every node of the main tree, leading to O(N) nodes * O(M) same-tree comparison = O(M*N) time. While usually acceptable in interviews, it can be optimized to O(M+N) by serializing both trees with null markers and applying the KMP string matching algorithm.\n3. Why null-check order is critical: Placing the double-null check `(!p && !q)` first, followed by the single-null check `(!p || !q)`, guarantees that when we compare node values `(p.val === q.val)`, both pointers are confirmed non-null, preventing null reference errors.',
       codeSkeleton: `// 1. Same Tree
-function isSameTree(p: TreeNode | null, q: TreeNode | null): boolean {
-  if (!p && !q) return true;  // Both null
-  if (!p || !q) return false; // One null
-  if (p.val !== q.val) return false;
-
-  return isSameTree(p.left, q.left) && isSameTree(p.right, q.right);
+bool isSameTree(TreeNode* p, TreeNode* q) {
+    if (!p && !q) return true;
+    if (!p || !q) return false;
+    return p->val == q->val && isSameTree(p->left, q->left) && isSameTree(p->right, q->right);
 }
 
-// 2. Symmetric Tree
-function isSymmetric(root: TreeNode | null): boolean {
-  if (!root) return true;
-
-  function isMirror(t1: TreeNode | null, t2: TreeNode | null): boolean {
+// 2. Symmetric Tree (Mirror Check)
+bool isMirror(TreeNode* t1, TreeNode* t2) {
     if (!t1 && !t2) return true;
     if (!t1 || !t2) return false;
-    if (t1.val !== t2.val) return false;
-
-    return isMirror(t1.left, t2.right) && isMirror(t1.right, t2.left); // Mirror checks
-  }
-
-  return isMirror(root.left, root.right);
+    return t1->val == t2->val && isMirror(t1->left, t2->right) && isMirror(t1->right, t2->left);
 }
 
-// 3. Subtree Check
-function isSubtree(root: TreeNode | null, subRoot: TreeNode | null): boolean {
-  if (!root) return false; // Main tree is empty
-  if (isSameTree(root, subRoot)) return true;
-
-  return isSubtree(root.left, subRoot) || isSubtree(root.right, subRoot);
+bool isSymmetric(TreeNode* root) {
+    return isMirror(root, root);
 }`,
       timeComplexity: 'O(n) for same/symmetric tree checks; O(m*n) for naive subtree check',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1587,33 +1237,30 @@ function isSubtree(root: TreeNode | null, subRoot: TreeNode | null): boolean {
       triggerCue: 'Inorder traversal in O(1) auxiliary space; traverse binary tree without recursion or stack; threaded binary tree; or constant space traversal. Key signature: The interviewer strictly prohibits stack or recursion memory allocations.',
       coreIdea: 'Traverse the tree by dynamically building temporary threads from inorder predecessors back to current nodes. For each node, if it has no left child, process it and move right. If it has a left child, find its inorder predecessor (rightmost node in the left subtree). If the predecessor\'s `right` is null, thread it to point to the current node and move left. If the predecessor\'s `right` is already pointing to current, remove the thread, process the current node, and move right.',
       whyItWorks: '1. Why threading the predecessor\'s right pointer to current node enables returning without a stack: normally, after processing the left subtree, we need to "come back" to the current node — that\'s what the call stack does in recursion. Morris creates a temporary link (thread) from the left subtree\'s rightmost node back to current, so after the left subtree is exhausted, natural right-pointer traversal returns to current automatically.\n2. Why the invariant "if thread exists -> we\'ve already processed left subtree" is safe: when we first visit a node with a left child, the predecessor\'s right is null — we set the thread. The second time we reach this node (via the thread), predecessor\'s right points to current — we know left subtree is done, so we visit current and go right. The thread is always unset before moving right, restoring the original tree structure.\n3. Why Morris traversal is genuinely O(1) space: no stack, no recursion stack, no visited array. Only two pointers (current and predecessor) used at any time. The tree itself is temporarily modified but fully restored by end of traversal.\n4. Why finding the predecessor takes O(1) amortized despite appearing O(n) per node: each node is visited as a predecessor at most twice (once to set thread, once to unset). Total predecessor-finding work across all nodes is O(n), not O(n²).',
-      codeSkeleton: `function morrisInorder(root: TreeNode | null): number[] {
-  const result: number[] = [];
-  let current: TreeNode | null = root;
-
-  while (current !== null) {
-    if (current.left === null) {
-      result.push(current.val); // Process node if no left child
-      current = current.right;   // Move right
-    } else {
-      // Find inorder predecessor (rightmost node of left subtree)
-      let pred: TreeNode = current.left;
-      while (pred.right !== null && pred.right !== current) {
-        pred = pred.right;
-      }
-
-      if (pred.right === null) {
-        pred.right = current;   // Establish thread link
-        current = current.left; // Move left
-      } else {
-        pred.right = null;      // Remove thread link
-        result.push(current.val); // Process current node
-        current = current.right;  // Move right
-      }
+      codeSkeleton: `// Morris Inorder Traversal
+std::vector<int> morrisInorder(TreeNode* root) {
+    std::vector<int> result;
+    TreeNode* current = root;
+    while (current != nullptr) {
+        if (current->left == nullptr) {
+            result.push_back(current->val);
+            current = current->right;
+        } else {
+            TreeNode* pred = current->left;
+            while (pred->right != nullptr && pred->right != current) {
+                pred = pred->right;
+            }
+            if (pred->right == nullptr) {
+                pred->right = current;
+                current = current->left;
+            } else {
+                pred->right = nullptr;
+                result.push_back(current->val);
+                current = current->right;
+            }
+        }
     }
-  }
-
-  return result;
+    return result;
 }`,
       timeComplexity: 'O(n) amortized (each node is visited at most 3 times)',
       spaceComplexity: 'O(1) auxiliary space (modifies tree in-place temporarily)',
@@ -1630,45 +1277,20 @@ function isSubtree(root: TreeNode | null, subRoot: TreeNode | null): boolean {
       coreIdea: 'For search, recursively move left if target is smaller than the current node, or right if it is larger. For validation, pass dynamic minimum and maximum bounds down the call stack, ensuring every node value falls strictly within `(min, max)`. Alternatively, perform an inorder traversal and verify that each node\'s value is strictly greater than the previously visited node\'s value.',
       whyItWorks: '1. Why comparing only with immediate parent is insufficient: A common mistake is validating a BST by simply comparing each node\'s value with its immediate left and right children. This approach fails to detect global subtree boundary violations. For example, consider a tree where the root is 10, the right child of the root is 15, and the left child of 15 is 8. The node 8 is greater than its parent\'s left child constraint (since it is a left child of 15, 8 < 15 is locally valid). However, because 8 is in the right subtree of the root (10), it violates the global BST property that all nodes in the right subtree of 10 must be strictly greater than 10. Locally, every node is valid, but globally the tree is invalid.\n2. Why bounds-passing catches global violations: To enforce the global BST property, we must validate that every node falls within a valid range `(min, max)`. When traversing to a left child, the maximum allowable value is updated to the parent\'s value (forcing all left descendants to be smaller than the parent). When traversing to a right child, the minimum allowable value is updated to the parent\'s value (forcing all right descendants to be larger than the parent). These bounds propagate down the recursion tree, ensuring that every node satisfies the constraints of all its ancestors, not just its immediate parent.\n3. Inorder traversal with a previous pointer as a constant-space alternative: By definition, the inorder traversal of a BST visits nodes in strictly ascending order. Thus, an alternative validation technique is to perform an inorder traversal while maintaining a reference to the previously visited node (`prev`). At each node, we assert that its value is strictly greater than `prev.val`. If this condition holds true for all nodes, the tree is a valid BST. This avoids passing min/max boundaries and can be implemented iteratively or recursively with only a single state variable tracking `prev`, achieving O(1) auxiliary space (excluding recursion stack space, or fully O(1) if combined with Morris traversal).',
       codeSkeleton: `// 1. Recursive BST Search
-function searchBST(root: TreeNode | null, val: number): TreeNode | null {
-  if (!root || root.val === val) return root;
-  return val < root.val ? searchBST(root.left, val) : searchBST(root.right, val);
+TreeNode* searchBST(TreeNode* root, int val) {
+    if (!root || root->val == val) return root;
+    return val < root->val ? searchBST(root->left, val) : searchBST(root->right, val);
 }
 
 // 2. Bounds-based BST Validation
-function isValidBST(root: TreeNode | null): boolean {
-  function validate(node: TreeNode | null, min: number | null, max: number | null): boolean {
+bool validate(TreeNode* node, long long minVal, long long maxVal) {
     if (!node) return true;
-
-    if ((min !== null && node.val <= min) || (max !== null && node.val >= max)) {
-      return false; // Out of bounds
-    }
-
-    // Left child: update max limit. Right child: update min limit.
-    return validate(node.left, min, node.val) && validate(node.right, node.val, max);
-  }
-
-  return validate(root, null, null);
+    if (node->val <= minVal || node->val >= maxVal) return false;
+    return validate(node->left, minVal, node->val) && validate(node->right, node->val, maxVal);
 }
 
-// 3. Inorder Validation with Prev Pointer
-function isValidBSTInorder(root: TreeNode | null): boolean {
-  let prev: number | null = null;
-
-  function inorder(node: TreeNode | null): boolean {
-    if (!node) return true;
-
-    if (!inorder(node.left)) return false;
-
-    if (prev !== null && node.val <= prev) {
-      return false; // Not strictly increasing
-    }
-    prev = node.val;
-
-    return inorder(node.right);
-  }
-
-  return inorder(root);
+bool isValidBST(TreeNode* root) {
+    return validate(root, LLONG_MIN, LLONG_MAX);
 }`,
       timeComplexity: 'O(h) for search (where h is height); O(n) for validation',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1683,39 +1305,43 @@ function isValidBSTInorder(root: TreeNode | null): boolean {
       triggerCue: 'Insert into a Binary Search Tree; delete node from BST; remove node from BST; find inorder successor; or find inorder predecessor. Key signature: Restructuring a BST while maintaining its sorted property.',
       coreIdea: 'For insertion, search left or right until encountering null, and insert the new node. For deletion, find the target node and resolve three cases: (1) no children: remove node, (2) one child: replace node with its child, (3) two children: replace the node\'s value with its inorder successor\'s value (minimum in the right subtree), then delete the inorder successor from the right subtree.',
       whyItWorks: '1. Why the inorder successor is chosen for two-child deletions: The inorder successor is the smallest value in the right subtree. Because it is greater than all nodes in the left subtree (which are smaller than the parent) and smaller than all remaining nodes in the right subtree, replacing the deleted node\'s value with the successor\'s value preserves the BST invariants.\n2. Why deleting the inorder successor is guaranteed to be a single-child case: By definition, the inorder successor is the leftmost node in the right subtree. If it had a left child, that left child would have a smaller value, making it the successor instead. Therefore, the successor node cannot have a left child, meaning its deletion falls into case 1 (no children) or case 2 (right child only), preventing infinite recursion.\n3. Why BST insertion maintains invariants inductively: Since insertion always occurs at a leaf, we do not restructure existing subtrees. By choosing the left branch when `val < root.val` and the right branch when `val > root.val`, we guarantee that the new leaf satisfies all BST constraints along its path.',
-      codeSkeleton: `function insertIntoBST(root: TreeNode | null, val: number): TreeNode {
-  if (!root) return new TreeNode(val);
-
-  if (val < root.val) {
-    root.left = insertIntoBST(root.left, val);
-  } else {
-    root.right = insertIntoBST(root.right, val);
-  }
-  return root;
+      codeSkeleton: `// Insert node into BST
+TreeNode* insertIntoBST(TreeNode* root, int val) {
+    if (!root) return new TreeNode(val);
+    if (val < root->val) {
+        root->left = insertIntoBST(root->left, val);
+    } else {
+        root->right = insertIntoBST(root->right, val);
+    }
+    return root;
 }
 
-function deleteNode(root: TreeNode | null, key: number): TreeNode | null {
-  if (!root) return null;
-
-  if (key < root.val) {
-    root.left = deleteNode(root.left, key);
-  } else if (key > root.val) {
-    root.right = deleteNode(root.right, key);
-  } else {
-    // Node to delete found!
-    if (!root.left) return root.right;  // Case 1 & 2: one or no child
-    if (!root.right) return root.left; // Case 2: one child
-
-    // Case 3: Two children. Find inorder successor (min in right subtree)
-    let successor = root.right;
-    while (successor.left !== null) {
-      successor = successor.left;
+// Delete node from BST
+TreeNode* deleteNode(TreeNode* root, int key) {
+    if (!root) return nullptr;
+    if (key < root->val) {
+        root->left = deleteNode(root->left, key);
+    } else if (key > root->val) {
+        root->right = deleteNode(root->right, key);
+    } else {
+        if (!root->left) {
+            TreeNode* temp = root->right;
+            delete root;
+            return temp;
+        }
+        if (!root->right) {
+            TreeNode* temp = root->left;
+            delete root;
+            return temp;
+        }
+        TreeNode* successor = root->right;
+        while (successor->left != nullptr) {
+            successor = successor->left;
+        }
+        root->val = successor->val;
+        root->right = deleteNode(root->right, successor->val);
     }
-    root.val = successor.val; // Replace value
-    // Delete the successor node from the right subtree
-    root.right = deleteNode(root.right, successor.val);
-  }
-  return root;
+    return root;
 }`,
       timeComplexity: 'O(h) for insertion and deletion (where h is the tree height)',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1730,50 +1356,18 @@ function deleteNode(root: TreeNode | null, key: number): TreeNode | null {
       triggerCue: 'Convert sorted array to BST; convert sorted list to BST; build a height-balanced BST; or construct BST from preorder traversal. Key signature: Building a height-balanced search tree from an ordered input sequence.',
       coreIdea: 'To construct a balanced BST from a sorted array, select the middle element as the root, and recurse on the left half (left subtree) and the right half (right subtree). To convert a sorted linked list in O(N) time, simulate an inorder traversal by building the left subtree, linking the root to the current list node, advancing the list pointer, and then building the right subtree.',
       whyItWorks: '1. Why picking the middle element ensures a height-balanced BST: At each recursion step, selecting the middle element splits the remaining items as evenly as possible. The sizes of the left and right subtrees differ by at most 1. By induction, this symmetric partitioning bounds the tree height to O(log N).\n2. Why inorder simulation converts a sorted list to BST in O(N) time: A naive divide-and-conquer approach on a linked list requires finding the middle node using slow/fast pointers at each step, resulting in O(N log N) time. The inorder simulation builds the BST in the exact order the linked list is traversed. By constructing nodes bottom-up, we convert the list in a single O(N) pass with O(log N) stack space.\n3. BST construction from preorder traversal: Since preorder lists the root first, we can reconstruct the BST in O(N) time by passing a valid range constraint down. We only consume a preorder value to create a node if it fits within the bounds for the current subtree branch.',
-      codeSkeleton: `// 1. Sorted Array to Balanced BST
-function sortedArrayToBST(nums: number[]): TreeNode | null {
-  function build(left: number, right: number): TreeNode | null {
-    if (left > right) return null;
-
-    const mid = Math.floor((left + right) / 2); // Choose middle element
-    const root = new TreeNode(nums[mid]);
-
-    root.left = build(left, mid - 1);
-    root.right = build(mid + 1, right);
-    return root;
-  }
-  return build(0, nums.length - 1);
+      codeSkeleton: `// Sorted Array to Balanced BST
+TreeNode* sortedArrayToBSTHelper(const std::vector<int>& nums, int left, int right) {
+    if (left > right) return nullptr;
+    int mid = left + (right - left) / 2;
+    TreeNode* node = new TreeNode(nums[mid]);
+    node->left = sortedArrayToBSTHelper(nums, left, mid - 1);
+    node->right = sortedArrayToBSTHelper(nums, mid + 1, right);
+    return node;
 }
 
-// 2. Sorted List to Balanced BST (O(N) Inorder Simulation)
-function sortedListToBST(head: ListNode | null): TreeNode | null {
-  let curr = head;
-
-  // Count total list nodes
-  let len = 0;
-  let temp = head;
-  while (temp) {
-    len++;
-    temp = temp.next;
-  }
-
-  function build(n: number): TreeNode | null {
-    if (n <= 0) return null;
-
-    // 1. Construct left subtree
-    const left = build(Math.floor(n / 2));
-
-    // 2. Construct root
-    const root = new TreeNode(curr!.val);
-    root.left = left;
-    curr = curr!.next; // Advance list pointer
-
-    // 3. Construct right subtree
-    root.right = build(n - Math.floor(n / 2) - 1);
-    return root;
-  }
-
-  return build(len);
+TreeNode* sortedArrayToBST(const std::vector<int>& nums) {
+    return sortedArrayToBSTHelper(nums, 0, nums.size() - 1);
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(log n) recursion call stack depth for balanced results',
@@ -1788,34 +1382,12 @@ function sortedListToBST(head: ListNode | null): TreeNode | null {
       triggerCue: 'Range sum of BST; kth smallest element in BST; trim BST; or find all values between L and R. Key signature: Pruning subtrees that fall entirely outside the target range.',
       coreIdea: 'Traverse the tree, but prune subtrees based on range boundaries. For example, in range sum, if the current node\'s value is less than or equal to the lower bound L, do not recurse into the left subtree. For trimming, if the current node is less than L, discard it and return the trimmed right subtree.',
       whyItWorks: '1. Why BST range checks allow subtree pruning: The BST property guarantees that all nodes in the left subtree are smaller than the parent. If a parent node\'s value is already smaller than the range limit L, all its left descendants must also be smaller than L. Thus, we can safely prune the left subtree from our traversal, reducing the search space.\n2. Why augmented BSTs can find the K-th smallest element in O(log N) time: A standard search for the K-th smallest node runs an inorder traversal up to K nodes, taking O(K) time (which can be O(N)). If each node is augmented to store the size of its left subtree, we can binary search: if `leftSize === k - 1`, the root is the target; if `leftSize >= k`, the target lies in the left subtree; otherwise, search the right subtree with an adjusted K.',
-      codeSkeleton: `// 1. Range Sum with Pruning
-function rangeSumBST(root: TreeNode | null, low: number, high: number): number {
-  if (!root) return 0;
-
-  if (root.val < low) {
-    return rangeSumBST(root.right, low, high); // Prune left subtree
-  }
-  if (root.val > high) {
-    return rangeSumBST(root.left, low, high);  // Prune right subtree
-  }
-
-  return root.val + rangeSumBST(root.left, low, high) + rangeSumBST(root.right, low, high);
-}
-
-// 2. Trim BST
-function trimBST(root: TreeNode | null, low: number, high: number): TreeNode | null {
-  if (!root) return null;
-
-  if (root.val < low) {
-    return trimBST(root.right, low, high); // Discard left subtree
-  }
-  if (root.val > high) {
-    return trimBST(root.left, low, high);  // Discard right subtree
-  }
-
-  root.left = trimBST(root.left, low, high);
-  root.right = trimBST(root.right, low, high);
-  return root;
+      codeSkeleton: `// Range Sum of BST
+int rangeSumBST(TreeNode* root, int low, int high) {
+    if (!root) return 0;
+    if (root->val < low) return rangeSumBST(root->right, low, high);
+    if (root->val > high) return rangeSumBST(root->left, low, high);
+    return root->val + rangeSumBST(root->left, low, high) + rangeSumBST(root->right, low, high);
 }`,
       timeComplexity: 'O(n) worst case; O(log n + count) average case with pruning',
       spaceComplexity: 'O(h) recursion call stack depth',
@@ -1830,53 +1402,28 @@ function trimBST(root: TreeNode | null, low: number, high: number): TreeNode | n
       triggerCue: 'Convert BST to greater sum tree; BST to doubly linked list; flatten BST; or convert BST to a sorted array. Key signature: Repurposing BST pointers to build linear structures.',
       coreIdea: 'For a Greater Sum Tree, perform a reverse inorder traversal (right->root->left) while maintaining a running sum of all visited nodes. For converting a BST to a doubly linked list, perform an inorder traversal and update the left pointers to act as `prev` and the right pointers to act as `next`.',
       whyItWorks: '1. Why reverse inorder traversal works for Greater Sum Trees: A standard inorder traversal (left->root->right) visits nodes in ascending order. Reversing the traversal (right->root->left) visits them in descending order. This means that when we visit a node, all nodes with greater values have already been processed, and the running sum represents the sum of all greater nodes.\n2. Why BST-to-doubly-linked-list can be done in O(1) auxiliary space: A BST node has left and right pointers, and a doubly linked list node has prev and next pointers. During an inorder traversal, we can update the left pointer to point to the previously visited node and the previous node\'s right pointer to point to the current node, converting the tree in-place without allocating new memory.',
-      codeSkeleton: `// 1. Convert BST to Greater Sum Tree
-function convertBST(root: TreeNode | null): TreeNode | null {
-  let sum = 0;
-
-  function traverse(node: TreeNode | null) {
+      codeSkeleton: `// Flatten BST to sorted circular Doubly Linked List in-place
+void helper(TreeNode* node, TreeNode*& prev, TreeNode*& first) {
     if (!node) return;
-
-    traverse(node.right); // 1. Visit right subtree (larger values)
-    sum += node.val;
-    node.val = sum;       // 2. Update root with running sum
-    traverse(node.left);  // 3. Visit left subtree (smaller values)
-  }
-
-  traverse(root);
-  return root;
+    helper(node->left, prev, first);
+    if (prev) {
+        prev->right = node;
+        node->left = prev;
+    } else {
+        first = node;
+    }
+    prev = node;
+    helper(node->right, prev, first);
 }
 
-// 2. BST to Doubly Linked List (In-place)
-function treeToDoublyList(root: TreeNode | null): TreeNode | null {
-  if (!root) return null;
-
-  let first: TreeNode | null = null;
-  let last: TreeNode | null = null;
-
-  function inorder(node: TreeNode | null) {
-    if (!node) return;
-
-    inorder(node.left);
-
-    if (last !== null) {
-      last.right = node; // Link prev node's next to current
-      node.left = last;  // Link current node's prev to last
-    } else {
-      first = node;      // First node in inorder traversal
-    }
-    last = node;
-
-    inorder(node.right);
-  }
-
-  inorder(root);
-  
-  // Make the list circular
-  first!.left = last;
-  last!.right = first;
-
-  return first;
+TreeNode* treeToDoublyList(TreeNode* root) {
+    if (!root) return nullptr;
+    TreeNode* prev = nullptr;
+    TreeNode* first = nullptr;
+    helper(root, prev, first);
+    first->left = prev;
+    prev->right = first;
+    return first;
 }`,
       timeComplexity: 'O(n)',
       spaceComplexity: 'O(h) recursion call stack depth; O(1) auxiliary space for in-place pointer updates',
@@ -1891,43 +1438,27 @@ function treeToDoublyList(root: TreeNode | null): TreeNode | null {
       triggerCue: 'Height-balanced BST; AVL tree rebalancing; convert unbalanced BST to balanced; or balance a BST. Key signature: Ensuring the difference in height between subtrees remains at most 1.',
       coreIdea: 'To balance an unbalanced BST, extract the nodes in sorted order using an inorder traversal, and then reconstruct a balanced BST from the sorted array. AVL trees maintain balance dynamically by performing left and right rotations at unbalanced nodes after insertions and deletions.',
       whyItWorks: '1. Why inorder traversal + reconstruction balances a BST in O(N) time: An inorder traversal of any BST extracts the keys in sorted order. Rebuilding the tree from this sorted array by recursively choosing the middle element as the root guarantees a balanced tree with a height of O(log N). This approach is simple, robust, and safe for interviews.\n2. Why AVL rotations restore balance while preserving the BST property: Rotations change the tree structure locally without altering the inorder key order. A right rotation on node X with left child Y makes Y the parent and X the right child, preserving the property that left subtree < parent < right subtree.\n3. Why height balance guarantees O(log N) search times: By keeping the heights of the left and right subtrees within 1 of each other, the maximum tree height is mathematically bounded to `2 * log2(N)`. This ensures that all search, insertion, and deletion operations run in logarithmic time.',
-      codeSkeleton: `// static rebalancing: Inorder -> Array -> Rebuild Balanced BST
-function balanceBST(root: TreeNode | null): TreeNode | null {
-  const sortedArr: TreeNode[] = [];
-
-  function inorder(node: TreeNode | null) {
-    if (!node) return;
-    inorder(node.left);
-    sortedArr.push(node);
-    inorder(node.right);
-  }
-
-  inorder(root);
-
-  function build(left: number, right: number): TreeNode | null {
-    if (left > right) return null;
-
-    const mid = Math.floor((left + right) / 2);
-    const node = sortedArr[mid];
-
-    node.left = build(left, mid - 1);
-    node.right = build(mid + 1, right);
-    return node;
-  }
-
-  return build(0, sortedArr.length - 1);
+      codeSkeleton: `// Convert unbalanced BST to a balanced BST statically
+void storeInorder(TreeNode* root, std::vector<TreeNode*>& nodes) {
+    if (!root) return;
+    storeInorder(root->left, nodes);
+    nodes.push_back(root);
+    storeInorder(root->right, nodes);
 }
 
-// AVL Right Rotation
-function rightRotate(y: TreeNode): TreeNode {
-  const x = y.left!;
-  const T2 = x.right;
+TreeNode* buildBalancedTree(const std::vector<TreeNode*>& nodes, int start, int end) {
+    if (start > end) return nullptr;
+    int mid = start + (end - start) / 2;
+    TreeNode* root = nodes[mid];
+    root->left = buildBalancedTree(nodes, start, mid - 1);
+    root->right = buildBalancedTree(nodes, mid + 1, end);
+    return root;
+}
 
-  // Perform rotation
-  x.right = y;
-  y.left = T2;
-
-  return x; // Return new root
+TreeNode* balanceBST(TreeNode* root) {
+    std::vector<TreeNode*> nodes;
+    storeInorder(root, nodes);
+    return buildBalancedTree(nodes, 0, nodes.size() - 1);
 }`,
       timeComplexity: 'O(n) for static rebalancing; O(log n) for AVL rotations',
       spaceComplexity: 'O(n) space for the sorted node array',
