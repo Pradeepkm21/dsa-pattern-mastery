@@ -81,7 +81,55 @@ async function main() {
     });
   }
 
-  // 3. Create Patterns (Array + Linked List + Graph)
+  // 2c. Upsert Binary Tree Pattern Group
+  let binaryTreeGroup = await prisma.patternGroup.findUnique({
+    where: { slug: 'binary-tree' },
+  });
+  if (!binaryTreeGroup) {
+    binaryTreeGroup = await prisma.patternGroup.create({
+      data: {
+        name: 'Binary Tree',
+        slug: 'binary-tree',
+        description: 'Binary tree traversal, construction, path, and structural patterns for interview preparation',
+        displayOrder: 4,
+      },
+    });
+  } else {
+    binaryTreeGroup = await prisma.patternGroup.update({
+      where: { slug: 'binary-tree' },
+      data: {
+        name: 'Binary Tree',
+        description: 'Binary tree traversal, construction, path, and structural patterns for interview preparation',
+        displayOrder: 4,
+      },
+    });
+  }
+
+  // 2d. Upsert Binary Search Tree Pattern Group
+  let binarySearchTreeGroup = await prisma.patternGroup.findUnique({
+    where: { slug: 'binary-search-tree' },
+  });
+  if (!binarySearchTreeGroup) {
+    binarySearchTreeGroup = await prisma.patternGroup.create({
+      data: {
+        name: 'Binary Search Tree',
+        slug: 'binary-search-tree',
+        description: 'BST search, insertion, deletion, construction, and property-based patterns for interview preparation',
+        displayOrder: 5,
+      },
+    });
+  } else {
+    binarySearchTreeGroup = await prisma.patternGroup.update({
+      where: { slug: 'binary-search-tree' },
+      data: {
+        name: 'Binary Search Tree',
+        description: 'BST search, insertion, deletion, construction, and property-based patterns for interview preparation',
+        displayOrder: 5,
+      },
+    });
+  }
+
+  // 3. Create Patterns (Array + Linked List + Graph + Binary Tree + BST)
   const patternsData = [
     // --- ARRAY PATTERNS ---
     {
@@ -1182,6 +1230,711 @@ function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number =
       comparisonNotes: 'Kruskal\'s is typically faster for sparse graphs since edge sorting dominates. Prim\'s is faster for dense graphs when using Fibonacci or binary heaps.',
       displayOrder: 9,
     },
+    // --- BINARY TREE PATTERNS ---
+    {
+      name: 'Tree Traversals',
+      slug: 'tree-traversals',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Inorder/preorder/postorder traversal; visiting all nodes in a tree; processing nodes in a specific order; or iterative traversal without recursion. Key property: Inorder traversal of a BST produces a strictly sorted sequence of values.',
+      coreIdea: 'Three structural visit orderings: preorder (root->left->right), inorder (left->root->right), postorder (left->right->root). While recursive implementations are straightforward, iterative traversals use an explicit stack to simulate the call stack. For iterative inorder, go left as far as possible (pushing to stack), process the node on pop, and then move to its right child.',
+      whyItWorks: '1. Why inorder traversal of a BST produces a sorted sequence: The BST property dictates that for any node, all values in its left subtree are strictly less than the node\'s value, and all values in its right subtree are strictly greater. Inorder traversal recursively visits the left subtree first (collecting all smaller values), then the node itself, and finally the right subtree (collecting all larger values). By induction on the subtree size, this ordering preserves the sorted order across all keys.\n2. Why iterative inorder uses a stack + current pointer pattern (rather than pre-pushing all nodes): Pre-pushing all nodes would require O(N) upfront work and space before processing the first node. The stack + current pointer pattern dynamically mirrors the recursive runtime call stack: pushing nodes as we "go left" until hitting null, popping to "process", and moving to the right child to initiate the next left-descending traversal.\n3. Why postorder is the natural choice for deletion/freeing nodes: To safely delete or free a node in memory, its children must be deleted first to prevent orphans or memory leaks. Postorder (left->right->root) guarantees that child subtrees are completely visited and processed before their parent node is visited.',
+      codeSkeleton: `// 1. Recursive Traversals
+function preorder(root: TreeNode | null, res: number[] = []): number[] {
+  if (!root) return res;
+  res.push(root.val);
+  preorder(root.left, res);
+  preorder(root.right, res);
+  return res;
+}
+
+function inorder(root: TreeNode | null, res: number[] = []): number[] {
+  if (!root) return res;
+  inorder(root.left, res);
+  res.push(root.val);
+  inorder(root.right, res);
+  return res;
+}
+
+function postorder(root: TreeNode | null, res: number[] = []): number[] {
+  if (!root) return res;
+  postorder(root.left, res);
+  postorder(root.right, res);
+  res.push(root.val);
+  return res;
+}
+
+// 2. Iterative Inorder Traversal
+function inorderIterative(root: TreeNode | null): number[] {
+  const res: number[] = [];
+  const stack: TreeNode[] = [];
+  let current: TreeNode | null = root;
+
+  while (current !== null || stack.length > 0) {
+    while (current !== null) {
+      stack.push(current);
+      current = current.left; // Go left as far as possible
+    }
+    current = stack.pop()!;
+    res.push(current.val);    // Process node
+    current = current.right;  // Go right
+  }
+  return res;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(h) where h is tree height (O(log n) balanced, O(n) worst case skewed)',
+      commonMistake: 'Forgetting to include the current pointer in the outer loop condition of the iterative traversal. If you only write `while (stack.length > 0)`, the loop terminates prematurely when the stack is empty but the right child of the last processed node has not yet been explored.',
+      comparisonNotes: 'Use recursive traversals for simplicity and readability. Switch to iterative traversals when call-stack overflow is a concern (e.g. extremely skewed, deep trees) or if Morris traversal is required to achieve O(1) space.',
+      displayOrder: 1,
+    },
+    {
+      name: 'Level Order / BFS on Tree',
+      slug: 'level-order-bfs',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Level by level node processing; level order traversal; right/left side view; zigzag tree traversal; average value of nodes at each level; maximum width of tree; or connecting next right pointers. Key signature: Any query that inspects or aggregates nodes sharing the same depth.',
+      coreIdea: 'Use a queue-based Breadth-First Search (BFS). Before starting the processing loop for a level, snapshot the current size of the queue. This size represents the exact count of nodes belonging to that specific level. Process exactly that many nodes, enqueuing their non-null children as you go.',
+      whyItWorks: '1. Why snapshotting queue size at level start correctly separates levels: At the start of processing level k, the queue contains exactly the nodes at level k (since all nodes from level k-1 were dequeued in the previous iteration, and only their children were enqueued). By running the inner loop exactly `size` times, we process all level-k nodes before evaluating the queue size again, preventing nodes of level k+1 from bleeding into the current level\'s processing.\n2. Why this approach is cleaner than null-sentinels: Null-sentinel designs require adding a null marker at the end of each level and re-adding it when encountered. This introduces edge cases (e.g., infinite loops on empty trees). The size-snapshot method requires no special sentinel values.\n3. Why right side view is the last node processed at each level: Since BFS processes children from left to right within each level, the last node dequeued in the level-processing loop is the rightmost node of that level, which is the only node visible from the right side.',
+      codeSkeleton: `function levelOrder(root: TreeNode | null): number[][] {
+  const result: number[][] = [];
+  if (!root) return result;
+
+  const queue: TreeNode[] = [root];
+
+  while (queue.length > 0) {
+    const levelSize = queue.length; // Snapshot level size
+    const currentLevel: number[] = [];
+
+    for (let i = 0; i < levelSize; i++) {
+      const node = queue.shift()!;
+      currentLevel.push(node.val);
+
+      if (node.left) queue.push(node.left);
+      if (node.right) queue.push(node.right);
+    }
+    result.push(currentLevel);
+  }
+  return result;
+}
+
+// Right Side View Variant
+function rightSideView(root: TreeNode | null): number[] {
+  const result: number[] = [];
+  if (!root) return result;
+
+  const queue: TreeNode[] = [root];
+
+  while (queue.length > 0) {
+    const levelSize = queue.length;
+
+    for (let i = 0; i < levelSize; i++) {
+      const node = queue.shift()!;
+      // The last node processed at this level is the rightmost node
+      if (i === levelSize - 1) {
+        result.push(node.val);
+      }
+
+      if (node.left) queue.push(node.left);
+      if (node.right) queue.push(node.right);
+    }
+  }
+  return result;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(w) where w is the maximum width of the tree (up to O(n) for a complete binary tree\'s bottom level)',
+      commonMistake: 'Directly calling `queue.length` inside the loop condition (e.g., `for (let i = 0; i < queue.length; i++)`) rather than snapshotting it beforehand. As children are enqueued, `queue.length` dynamically increases, blending levels together.',
+      comparisonNotes: 'BFS/Level Order is ideal for properties tied to tree levels or depth boundaries. DFS is preferred for vertical properties like root-to-leaf paths or ancestor relationships.',
+      displayOrder: 2,
+    },
+    {
+      name: 'Tree Construction',
+      slug: 'tree-construction',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Construct a binary tree from preorder/postorder and inorder traversals; serialize and deserialize a binary tree; build a tree from a flat traversal representation; or reconstruct a tree structure. Key signature: Rebuilding trees from serialized sequences.',
+      coreIdea: 'For reconstruction from traversals (e.g., preorder + inorder): The first element of the preorder array is always the root. Locate this root\'s index in the inorder array. All elements to the left of this index belong to the left subtree, and all elements to the right belong to the right subtree. Recurse. For serialization/deserialization, use a preorder traversal with null markers to explicitly capture leaf bounds.',
+      whyItWorks: '1. Why preorder + inorder uniquely determines a binary tree: Preorder traversal provides the sequence of roots (first element of any slice is the subtree root), while inorder traversal provides the division of left and right subtrees. Finding the root\'s index in the inorder array reveals the exact size of the left and right subtrees, allowing us to split the preorder array correctly. Preorder + postorder is insufficient because without inorder size splits, one cannot distinguish if a node with a single child has a left or a right child.\n2. Why a HashMap is required for inorder index lookups: A naive linear scan to find the root\'s index in the inorder array takes O(N) time per recursion level, degrading the overall runtime to O(N²). Pre-populating a HashMap with `{ value: index }` reduces each lookup to O(1), achieving a linear O(N) total construction time.\n3. Why serialize with null markers allows unambiguous reconstruction: Storing null markers explicitly denotes empty children. Without them, a flat sequence of values is ambiguous (e.g., [1, 2] could be 1 with left child 2, or 1 with right child 2). Null markers represent the leaf boundaries, enabling a single-pass queue-based reconstruction.',
+      codeSkeleton: `function buildTree(preorder: number[], inorder: number[]): TreeNode | null {
+  const inMap = new Map<number, number>();
+  inorder.forEach((val, idx) => inMap.set(val, idx)); // O(1) lookup map
+
+  let preIdx = 0;
+
+  function helper(left: number, right: number): TreeNode | null {
+    if (left > right) return null;
+
+    const rootVal = preorder[preIdx++];
+    const root = new TreeNode(rootVal);
+    const mid = inMap.get(rootVal)!;
+
+    root.left = helper(left, mid - 1);
+    root.right = helper(mid + 1, right);
+    return root;
+  }
+
+  return helper(0, inorder.length - 1);
+}
+
+// Serialization / Deserialization
+function serialize(root: TreeNode | null): string {
+  const result: string[] = [];
+  function traverse(node: TreeNode | null) {
+    if (!node) {
+      result.push('#'); // Null marker
+      return;
+    }
+    result.push(node.val.toString());
+    traverse(node.left);
+    traverse(node.right);
+  }
+  traverse(root);
+  return result.join(',');
+}
+
+function deserialize(data: string): TreeNode | null {
+  const nodes = data.split(',');
+  let idx = 0;
+
+  function build(): TreeNode | null {
+    if (idx >= nodes.length) return null;
+    const val = nodes[idx++];
+    if (val === '#') return null;
+
+    const node = new TreeNode(parseInt(val, 10));
+    node.left = build();
+    node.right = build();
+    return node;
+  }
+
+  return build();
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(n) for HashMap index mapping and recursion call stack',
+      commonMistake: 'OMITTING the HashMap optimization for inorder index lookups, which leads to O(N²) time complexity and results in Time Limit Exceeded (TLE) errors on large test inputs.',
+      comparisonNotes: 'Preorder + Inorder and Postorder + Inorder constructions can rebuild any binary tree. A BST can be rebuilt from preorder alone because the sorted inorder sequence is implicitly known.',
+      displayOrder: 3,
+    },
+    {
+      name: 'Lowest Common Ancestor (LCA)',
+      slug: 'lowest-common-ancestor',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Find lowest common ancestor; LCA; common ancestor of two nodes; compute distance between two nodes; or locate the path connecting two nodes. Key signature: Finding the deepest node in a tree where two distinct paths diverge.',
+      coreIdea: 'Use recursive DFS. If the current node is null, or matches node p, or matches node q, return the current node. Recurse left and right. If both subtrees return non-null values, the current node is the LCA. If only one returns a non-null value, propagate that non-null value upward.',
+      whyItWorks: '1. Why both subtrees returning non-null proves the current node is the LCA: If recursing left yields one of the target nodes and recursing right yields the other, it means the targets are split between the left and right subtrees. The current node is the highest point where their paths intersect, making it the lowest common ancestor by definition.\n2. Why returning the one non-null result handles ancestor-descendant relationships: If p is an ancestor of q, the traversal will encounter p first. In this case, p itself is the LCA. The recursion returns p immediately, and the check on the other branch returns null. The non-null result (p) propagates up, which is correct since p contains q as a descendant.\n3. Why single-pass post-order DFS is optimal: To confirm that a node is the LCA, we must potentially inspect all subtrees to find the targets. A post-order traversal allows us to evaluate the state of both subtrees before making a decision at the parent node, completing the search in a single O(N) pass.',
+      codeSkeleton: `function lowestCommonAncestor(root: TreeNode | null, p: TreeNode, q: TreeNode): TreeNode | null {
+  if (!root || root === p || root === q) {
+    return root; // Base case: return if root is null, p, or q
+  }
+
+  const left = lowestCommonAncestor(root.left, p, q);
+  const right = lowestCommonAncestor(root.right, p, q);
+
+  // If both left and right return non-null, this root is the LCA
+  if (left !== null && right !== null) {
+    return root;
+  }
+
+  // Otherwise, return the non-null side
+  return left !== null ? left : right;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'Assuming the general LCA algorithm works if p or q might not exist in the tree. The standard algorithm returns p if it finds it, even if q is missing. If existence is not guaranteed, you must run a pre-check or use tracking flags.',
+      comparisonNotes: 'For general Binary Trees, LCA requires exploring both subtrees, taking O(N) time. For BSTs, LCA can be found in O(H) time using the binary search property without traversing the entire tree.',
+      displayOrder: 4,
+    },
+    {
+      name: 'Tree Path Problems',
+      slug: 'tree-path-problems',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Path sum; root-to-leaf paths; maximum path sum; check if path exists with sum K; find all paths; or sum of root-to-leaf binary numbers. Key distinction: Root-to-leaf paths (must start at root and end at leaf) vs Any-to-any paths (can start and end at arbitrary nodes, going up and down).',
+      coreIdea: 'For root-to-leaf paths, pass the remaining target sum down to the children and evaluate at the leaf. For any-to-any paths (such as Maximum Path Sum), calculate the maximum path sum through each node as a turning point (`val + max(0, leftGain) + max(0, rightGain)`). Track the global maximum while returning only the single-branch contribution (`val + max(leftGain, rightGain)`) to parent calls.',
+      whyItWorks: '1. Why maximum path sum requires updating a global variable: An arbitrary path in a tree can have only one highest node (where it bends). We cannot return a full branching path (left + root + right) upward, as a parent node can only extend one child branch without branching. Therefore, at each node, we compute the maximum possible path that turns at that node, update a global max, and return only the best single-branch extension upward.\n2. Why clamping branch gains to 0 is correct: If a child subtree yields a negative sum, including it would reduce our path sum. Clamping negative gains to 0 (`max(0, gain)`) is equivalent to choosing to truncate the path at the current node instead of extending it into the negative subtree.\n3. Why root-to-leaf path sum passes the remaining target down: By subtracting the current node\'s value from the target sum as we descend, the check at the leaf simplifies to `leaf.val === targetSum`. This avoids having to track a running path history in memory.',
+      codeSkeleton: `// 1. Root-to-Leaf Path Sum
+function hasPathSum(root: TreeNode | null, targetSum: number): boolean {
+  if (!root) return false;
+  if (!root.left && !root.right) {
+    return root.val === targetSum; // Leaf node check
+  }
+  return hasPathSum(root.left, targetSum - root.val) || 
+         hasPathSum(root.right, targetSum - root.val);
+}
+
+// 2. Any-to-Any Maximum Path Sum
+function maxPathSum(root: TreeNode | null): number {
+  let globalMax = -Infinity;
+
+  function maxGain(node: TreeNode | null): number {
+    if (!node) return 0;
+
+    // Clamp negative gains to 0
+    const leftGain = Math.max(0, maxGain(node.left));
+    const rightGain = Math.max(0, maxGain(node.right));
+
+    // Price of path turning at this node
+    const priceNewPath = node.val + leftGain + rightGain;
+    globalMax = Math.max(globalMax, priceNewPath);
+
+    // Return the max branch gain to parent
+    return node.val + Math.max(leftGain, rightGain);
+  }
+
+  maxGain(root);
+  return globalMax;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'For maximum path sum, returning the sum of both branches (`val + leftGain + rightGain`) from the helper function. This violates the path constraint because a valid path cannot contain branches (it can only extend through a single child to the parent).',
+      comparisonNotes: 'Root-to-leaf paths are simple top-down traversals where state propagates downwards. Any-to-any path sum problems require a bottom-up post-order traversal to collect gains.',
+      displayOrder: 5,
+    },
+    {
+      name: 'Tree Diameter & Height',
+      slug: 'tree-diameter-height',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Height of tree; depth of tree; diameter of tree; longest path between any two nodes; check if binary tree is balanced; or minimum depth of tree. Key concept: Diameter is the length of the longest path between any two nodes, which does not necessarily pass through the root.',
+      coreIdea: 'Compute heights recursively as `max(leftHeight, rightHeight) + 1`. At each node during this post-order traversal, the candidate diameter is `leftHeight + rightHeight`. Keep track of the maximum candidate diameter seen. For balanced check, return `-1` immediately if any subtree is unbalanced, avoiding redundant height checks.',
+      whyItWorks: '1. Why diameter does not always pass through the root: In a tree with a deeply skewed left subtree that branches, the longest path might reside entirely within that left subtree. By calculating the diameter candidate `leftHeight + rightHeight` at every single node, we ensure we evaluate all possible bending points, not just the root.\n2. Why the balance check can be optimized with a `-1` sentinel: A naive balance check calls height at every node, resulting in O(N²) time. By returning `-1` as a sentinel value from our height helper when an imbalance is found, we propagate this failure up the call stack. Any parent node receiving `-1` from a child immediately returns `-1` without computing heights, resulting in O(N) time.\n3. Height definition variance: The height of a tree can be defined by the number of nodes or the number of edges. LeetCode defines the diameter as the number of edges on the longest path, which is equal to `leftHeight + rightHeight` if height is defined as the maximum edge depth to a leaf.',
+      codeSkeleton: `// Height and Diameter in one pass
+function treeDiameter(root: TreeNode | null): number {
+  let maxDiameter = 0;
+
+  function dfs(node: TreeNode | null): number {
+    if (!node) return 0; // Height of null is 0
+
+    const left = dfs(node.left);
+    const right = dfs(node.right);
+
+    maxDiameter = Math.max(maxDiameter, left + right); // Edge count diameter
+    return Math.max(left, right) + 1;                  // Return height
+  }
+
+  dfs(root);
+  return maxDiameter;
+}
+
+// Height-Balanced Tree Check (O(N) using -1 sentinel)
+function isBalanced(root: TreeNode | null): boolean {
+  function check(node: TreeNode | null): number {
+    if (!node) return 0;
+
+    const leftHeight = check(node.left);
+    if (leftHeight === -1) return -1; // Propagate imbalance
+
+    const rightHeight = check(node.right);
+    if (rightHeight === -1) return -1; // Propagate imbalance
+
+    if (Math.abs(leftHeight - rightHeight) > 1) {
+      return -1; // Imbalance detected at current node
+    }
+
+    return Math.max(leftHeight, rightHeight) + 1;
+  }
+
+  return check(root) !== -1;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'Only calculating `leftHeight + rightHeight` at the root node to find the diameter. This misses the longest path if it is contained entirely within a deep subtree.',
+      comparisonNotes: 'Tree height is the maximum depth of a single branch. Tree diameter is the maximum distance between any two leaves, which is the sum of the heights of two branches at some node.',
+      displayOrder: 6,
+    },
+    {
+      name: 'Tree Symmetry & Comparison',
+      slug: 'tree-symmetry-comparison',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Symmetric tree; mirror image tree; same tree; subtree of another tree; or flip equivalent binary trees. Key property: Comparing structural and value invariants between two distinct trees or subtrees.',
+      coreIdea: 'For same tree, check if both are null (true), one is null (false), or values mismatch (false), then recurse on their corresponding children. For symmetric tree, run a mirror comparison on the root\'s left and right subtrees, comparing `left.left` with `right.right` and `left.right` with `right.left`.',
+      whyItWorks: '1. Why symmetric tree compares mirror pairs: Symmetry requires that if we fold the tree along the middle, the left and right halves match. Thus, the leftmost descendant of the left child must match the rightmost descendant of the right child (`left.left === right.right`), and the inner descendants must match (`left.right === right.left`). Comparing `left.left` with `right.left` would check for equality, not symmetry.\n2. Why naive subtree check is O(M*N) and how it can be optimized: The naive subtree check runs a `isSameTree` check at every node of the main tree, leading to O(N) nodes * O(M) same-tree comparison = O(M*N) time. While usually acceptable in interviews, it can be optimized to O(M+N) by serializing both trees with null markers and applying the KMP string matching algorithm.\n3. Why null-check order is critical: Placing the double-null check `(!p && !q)` first, followed by the single-null check `(!p || !q)`, guarantees that when we compare node values `(p.val === q.val)`, both pointers are confirmed non-null, preventing null reference errors.',
+      codeSkeleton: `// 1. Same Tree
+function isSameTree(p: TreeNode | null, q: TreeNode | null): boolean {
+  if (!p && !q) return true;  // Both null
+  if (!p || !q) return false; // One null
+  if (p.val !== q.val) return false;
+
+  return isSameTree(p.left, q.left) && isSameTree(p.right, q.right);
+}
+
+// 2. Symmetric Tree
+function isSymmetric(root: TreeNode | null): boolean {
+  if (!root) return true;
+
+  function isMirror(t1: TreeNode | null, t2: TreeNode | null): boolean {
+    if (!t1 && !t2) return true;
+    if (!t1 || !t2) return false;
+    if (t1.val !== t2.val) return false;
+
+    return isMirror(t1.left, t2.right) && isMirror(t1.right, t2.left); // Mirror checks
+  }
+
+  return isMirror(root.left, root.right);
+}
+
+// 3. Subtree Check
+function isSubtree(root: TreeNode | null, subRoot: TreeNode | null): boolean {
+  if (!root) return false; // Main tree is empty
+  if (isSameTree(root, subRoot)) return true;
+
+  return isSubtree(root.left, subRoot) || isSubtree(root.right, subRoot);
+}`,
+      timeComplexity: 'O(n) for same/symmetric tree checks; O(m*n) for naive subtree check',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'For symmetric tree checks, comparing `t1.left` with `t2.left` instead of `t2.right`. This checks if the subtrees are identical rather than being mirror images of each other.',
+      comparisonNotes: 'Mirror symmetry checks require cross-recursing left and right branches. Equality checks recurse same-side branches.',
+      displayOrder: 7,
+    },
+    {
+      name: 'Morris Traversal',
+      slug: 'morris-traversal',
+      groupSlug: 'binary-tree',
+      triggerCue: 'Inorder traversal in O(1) auxiliary space; traverse binary tree without recursion or stack; threaded binary tree; or constant space traversal. Key signature: The interviewer strictly prohibits stack or recursion memory allocations.',
+      coreIdea: 'Traverse the tree by dynamically building temporary threads from inorder predecessors back to current nodes. For each node, if it has no left child, process it and move right. If it has a left child, find its inorder predecessor (rightmost node in the left subtree). If the predecessor\'s `right` is null, thread it to point to the current node and move left. If the predecessor\'s `right` is already pointing to current, remove the thread, process the current node, and move right.',
+      whyItWorks: '1. Why threading the predecessor\'s right pointer to current node enables returning without a stack: normally, after processing the left subtree, we need to "come back" to the current node — that\'s what the call stack does in recursion. Morris creates a temporary link (thread) from the left subtree\'s rightmost node back to current, so after the left subtree is exhausted, natural right-pointer traversal returns to current automatically.\n2. Why the invariant "if thread exists -> we\'ve already processed left subtree" is safe: when we first visit a node with a left child, the predecessor\'s right is null — we set the thread. The second time we reach this node (via the thread), predecessor\'s right points to current — we know left subtree is done, so we visit current and go right. The thread is always unset before moving right, restoring the original tree structure.\n3. Why Morris traversal is genuinely O(1) space: no stack, no recursion stack, no visited array. Only two pointers (current and predecessor) used at any time. The tree itself is temporarily modified but fully restored by end of traversal.\n4. Why finding the predecessor takes O(1) amortized despite appearing O(n) per node: each node is visited as a predecessor at most twice (once to set thread, once to unset). Total predecessor-finding work across all nodes is O(n), not O(n²).',
+      codeSkeleton: `function morrisInorder(root: TreeNode | null): number[] {
+  const result: number[] = [];
+  let current: TreeNode | null = root;
+
+  while (current !== null) {
+    if (current.left === null) {
+      result.push(current.val); // Process node if no left child
+      current = current.right;   // Move right
+    } else {
+      // Find inorder predecessor (rightmost node of left subtree)
+      let pred: TreeNode = current.left;
+      while (pred.right !== null && pred.right !== current) {
+        pred = pred.right;
+      }
+
+      if (pred.right === null) {
+        pred.right = current;   // Establish thread link
+        current = current.left; // Move left
+      } else {
+        pred.right = null;      // Remove thread link
+        result.push(current.val); // Process current node
+        current = current.right;  // Move right
+      }
+    }
+  }
+
+  return result;
+}`,
+      timeComplexity: 'O(n) amortized (each node is visited at most 3 times)',
+      spaceComplexity: 'O(1) auxiliary space (modifies tree in-place temporarily)',
+      commonMistake: 'Forgetting to restore the predecessor\'s right pointer to null when detecting an existing thread. This leaves the temporary thread in the tree, creating cyclic references and causing infinite loops in subsequent traversals.',
+      comparisonNotes: 'Morris traversal is the only tree traversal algorithm that achieves O(1) auxiliary space. It does this by temporarily modifying and then restoring the tree\'s pointer structure.',
+      displayOrder: 8,
+    },
+    // --- BINARY SEARCH TREE PATTERNS ---
+    {
+      name: 'BST Search & Validation',
+      slug: 'bst-search-validation',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Search in a Binary Search Tree; validate BST; verify if tree is a BST; find node in BST; or process nodes using the BST property. Key signature: The sorted nature of the inorder traversal (left < root < right).',
+      coreIdea: 'For search, recursively move left if target is smaller than the current node, or right if it is larger. For validation, pass dynamic minimum and maximum bounds down the call stack, ensuring every node value falls strictly within `(min, max)`. Alternatively, perform an inorder traversal and verify that each node\'s value is strictly greater than the previously visited node\'s value.',
+      whyItWorks: '1. Why comparing only with immediate parent is insufficient: A common mistake is validating a BST by simply comparing each node\'s value with its immediate left and right children. This approach fails to detect global subtree boundary violations. For example, consider a tree where the root is 10, the right child of the root is 15, and the left child of 15 is 8. The node 8 is greater than its parent\'s left child constraint (since it is a left child of 15, 8 < 15 is locally valid). However, because 8 is in the right subtree of the root (10), it violates the global BST property that all nodes in the right subtree of 10 must be strictly greater than 10. Locally, every node is valid, but globally the tree is invalid.\n2. Why bounds-passing catches global violations: To enforce the global BST property, we must validate that every node falls within a valid range `(min, max)`. When traversing to a left child, the maximum allowable value is updated to the parent\'s value (forcing all left descendants to be smaller than the parent). When traversing to a right child, the minimum allowable value is updated to the parent\'s value (forcing all right descendants to be larger than the parent). These bounds propagate down the recursion tree, ensuring that every node satisfies the constraints of all its ancestors, not just its immediate parent.\n3. Inorder traversal with a previous pointer as a constant-space alternative: By definition, the inorder traversal of a BST visits nodes in strictly ascending order. Thus, an alternative validation technique is to perform an inorder traversal while maintaining a reference to the previously visited node (`prev`). At each node, we assert that its value is strictly greater than `prev.val`. If this condition holds true for all nodes, the tree is a valid BST. This avoids passing min/max boundaries and can be implemented iteratively or recursively with only a single state variable tracking `prev`, achieving O(1) auxiliary space (excluding recursion stack space, or fully O(1) if combined with Morris traversal).',
+      codeSkeleton: `// 1. Recursive BST Search
+function searchBST(root: TreeNode | null, val: number): TreeNode | null {
+  if (!root || root.val === val) return root;
+  return val < root.val ? searchBST(root.left, val) : searchBST(root.right, val);
+}
+
+// 2. Bounds-based BST Validation
+function isValidBST(root: TreeNode | null): boolean {
+  function validate(node: TreeNode | null, min: number | null, max: number | null): boolean {
+    if (!node) return true;
+
+    if ((min !== null && node.val <= min) || (max !== null && node.val >= max)) {
+      return false; // Out of bounds
+    }
+
+    // Left child: update max limit. Right child: update min limit.
+    return validate(node.left, min, node.val) && validate(node.right, node.val, max);
+  }
+
+  return validate(root, null, null);
+}
+
+// 3. Inorder Validation with Prev Pointer
+function isValidBSTInorder(root: TreeNode | null): boolean {
+  let prev: number | null = null;
+
+  function inorder(node: TreeNode | null): boolean {
+    if (!node) return true;
+
+    if (!inorder(node.left)) return false;
+
+    if (prev !== null && node.val <= prev) {
+      return false; // Not strictly increasing
+    }
+    prev = node.val;
+
+    return inorder(node.right);
+  }
+
+  return inorder(root);
+}`,
+      timeComplexity: 'O(h) for search (where h is height); O(n) for validation',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'Validating a BST by comparing each node only with its direct left and right children. This misses cases where a node deep inside a subtree violates a boundary defined by a higher ancestor.',
+      comparisonNotes: 'Search in a balanced BST is O(log N), providing a logarithmic time advantage over general Binary Trees. Validation always requires O(N) time since every node must be visited to verify correctness.',
+      displayOrder: 1,
+    },
+    {
+      name: 'BST Insert & Delete',
+      slug: 'bst-insert-delete',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Insert into a Binary Search Tree; delete node from BST; remove node from BST; find inorder successor; or find inorder predecessor. Key signature: Restructuring a BST while maintaining its sorted property.',
+      coreIdea: 'For insertion, search left or right until encountering null, and insert the new node. For deletion, find the target node and resolve three cases: (1) no children: remove node, (2) one child: replace node with its child, (3) two children: replace the node\'s value with its inorder successor\'s value (minimum in the right subtree), then delete the inorder successor from the right subtree.',
+      whyItWorks: '1. Why the inorder successor is chosen for two-child deletions: The inorder successor is the smallest value in the right subtree. Because it is greater than all nodes in the left subtree (which are smaller than the parent) and smaller than all remaining nodes in the right subtree, replacing the deleted node\'s value with the successor\'s value preserves the BST invariants.\n2. Why deleting the inorder successor is guaranteed to be a single-child case: By definition, the inorder successor is the leftmost node in the right subtree. If it had a left child, that left child would have a smaller value, making it the successor instead. Therefore, the successor node cannot have a left child, meaning its deletion falls into case 1 (no children) or case 2 (right child only), preventing infinite recursion.\n3. Why BST insertion maintains invariants inductively: Since insertion always occurs at a leaf, we do not restructure existing subtrees. By choosing the left branch when `val < root.val` and the right branch when `val > root.val`, we guarantee that the new leaf satisfies all BST constraints along its path.',
+      codeSkeleton: `function insertIntoBST(root: TreeNode | null, val: number): TreeNode {
+  if (!root) return new TreeNode(val);
+
+  if (val < root.val) {
+    root.left = insertIntoBST(root.left, val);
+  } else {
+    root.right = insertIntoBST(root.right, val);
+  }
+  return root;
+}
+
+function deleteNode(root: TreeNode | null, key: number): TreeNode | null {
+  if (!root) return null;
+
+  if (key < root.val) {
+    root.left = deleteNode(root.left, key);
+  } else if (key > root.val) {
+    root.right = deleteNode(root.right, key);
+  } else {
+    // Node to delete found!
+    if (!root.left) return root.right;  // Case 1 & 2: one or no child
+    if (!root.right) return root.left; // Case 2: one child
+
+    // Case 3: Two children. Find inorder successor (min in right subtree)
+    let successor = root.right;
+    while (successor.left !== null) {
+      successor = successor.left;
+    }
+    root.val = successor.val; // Replace value
+    // Delete the successor node from the right subtree
+    root.right = deleteNode(root.right, successor.val);
+  }
+  return root;
+}`,
+      timeComplexity: 'O(h) for insertion and deletion (where h is the tree height)',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'For two-child deletions, trying to perform pointer surgery to swap the nodes instead of simply copying the successor\'s value into the target node. Copying the value is simpler and less prone to breaking subtree relationships.',
+      comparisonNotes: 'Insertion always creates a new leaf node and is relatively simple. Deletion requires restructuring the tree when the target node has children.',
+      displayOrder: 2,
+    },
+    {
+      name: 'BST Construction',
+      slug: 'bst-construction',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Convert sorted array to BST; convert sorted list to BST; build a height-balanced BST; or construct BST from preorder traversal. Key signature: Building a height-balanced search tree from an ordered input sequence.',
+      coreIdea: 'To construct a balanced BST from a sorted array, select the middle element as the root, and recurse on the left half (left subtree) and the right half (right subtree). To convert a sorted linked list in O(N) time, simulate an inorder traversal by building the left subtree, linking the root to the current list node, advancing the list pointer, and then building the right subtree.',
+      whyItWorks: '1. Why picking the middle element ensures a height-balanced BST: At each recursion step, selecting the middle element splits the remaining items as evenly as possible. The sizes of the left and right subtrees differ by at most 1. By induction, this symmetric partitioning bounds the tree height to O(log N).\n2. Why inorder simulation converts a sorted list to BST in O(N) time: A naive divide-and-conquer approach on a linked list requires finding the middle node using slow/fast pointers at each step, resulting in O(N log N) time. The inorder simulation builds the BST in the exact order the linked list is traversed. By constructing nodes bottom-up, we convert the list in a single O(N) pass with O(log N) stack space.\n3. BST construction from preorder traversal: Since preorder lists the root first, we can reconstruct the BST in O(N) time by passing a valid range constraint down. We only consume a preorder value to create a node if it fits within the bounds for the current subtree branch.',
+      codeSkeleton: `// 1. Sorted Array to Balanced BST
+function sortedArrayToBST(nums: number[]): TreeNode | null {
+  function build(left: number, right: number): TreeNode | null {
+    if (left > right) return null;
+
+    const mid = Math.floor((left + right) / 2); // Choose middle element
+    const root = new TreeNode(nums[mid]);
+
+    root.left = build(left, mid - 1);
+    root.right = build(mid + 1, right);
+    return root;
+  }
+  return build(0, nums.length - 1);
+}
+
+// 2. Sorted List to Balanced BST (O(N) Inorder Simulation)
+function sortedListToBST(head: ListNode | null): TreeNode | null {
+  let curr = head;
+
+  // Count total list nodes
+  let len = 0;
+  let temp = head;
+  while (temp) {
+    len++;
+    temp = temp.next;
+  }
+
+  function build(n: number): TreeNode | null {
+    if (n <= 0) return null;
+
+    // 1. Construct left subtree
+    const left = build(Math.floor(n / 2));
+
+    // 2. Construct root
+    const root = new TreeNode(curr!.val);
+    root.left = left;
+    curr = curr!.next; // Advance list pointer
+
+    // 3. Construct right subtree
+    root.right = build(n - Math.floor(n / 2) - 1);
+    return root;
+  }
+
+  return build(len);
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(log n) recursion call stack depth for balanced results',
+      commonMistake: 'Using a slow/fast pointer check to find the middle element of a linked list at each recursion level, which increases the time complexity to O(N log N) instead of using the O(N) inorder simulation.',
+      comparisonNotes: 'Sorted arrays can be indexed in O(1) time, making divide-and-conquer construction simple. Linked lists require inorder simulation to avoid linear scanning overhead.',
+      displayOrder: 3,
+    },
+    {
+      name: 'BST Range Problems',
+      slug: 'bst-range-problems',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Range sum of BST; kth smallest element in BST; trim BST; or find all values between L and R. Key signature: Pruning subtrees that fall entirely outside the target range.',
+      coreIdea: 'Traverse the tree, but prune subtrees based on range boundaries. For example, in range sum, if the current node\'s value is less than or equal to the lower bound L, do not recurse into the left subtree. For trimming, if the current node is less than L, discard it and return the trimmed right subtree.',
+      whyItWorks: '1. Why BST range checks allow subtree pruning: The BST property guarantees that all nodes in the left subtree are smaller than the parent. If a parent node\'s value is already smaller than the range limit L, all its left descendants must also be smaller than L. Thus, we can safely prune the left subtree from our traversal, reducing the search space.\n2. Why augmented BSTs can find the K-th smallest element in O(log N) time: A standard search for the K-th smallest node runs an inorder traversal up to K nodes, taking O(K) time (which can be O(N)). If each node is augmented to store the size of its left subtree, we can binary search: if `leftSize === k - 1`, the root is the target; if `leftSize >= k`, the target lies in the left subtree; otherwise, search the right subtree with an adjusted K.',
+      codeSkeleton: `// 1. Range Sum with Pruning
+function rangeSumBST(root: TreeNode | null, low: number, high: number): number {
+  if (!root) return 0;
+
+  if (root.val < low) {
+    return rangeSumBST(root.right, low, high); // Prune left subtree
+  }
+  if (root.val > high) {
+    return rangeSumBST(root.left, low, high);  // Prune right subtree
+  }
+
+  return root.val + rangeSumBST(root.left, low, high) + rangeSumBST(root.right, low, high);
+}
+
+// 2. Trim BST
+function trimBST(root: TreeNode | null, low: number, high: number): TreeNode | null {
+  if (!root) return null;
+
+  if (root.val < low) {
+    return trimBST(root.right, low, high); // Discard left subtree
+  }
+  if (root.val > high) {
+    return trimBST(root.left, low, high);  // Discard right subtree
+  }
+
+  root.left = trimBST(root.left, low, high);
+  root.right = trimBST(root.right, low, high);
+  return root;
+}`,
+      timeComplexity: 'O(n) worst case; O(log n + count) average case with pruning',
+      spaceComplexity: 'O(h) recursion call stack depth',
+      commonMistake: 'Visiting all nodes in a range query without using pruning checks, which negates the O(log N) search advantage of the Binary Search Tree.',
+      comparisonNotes: 'Range sum queries on general Binary Trees require visiting every node. BSTs allow us to skip subtrees that fall outside the target bounds.',
+      displayOrder: 4,
+    },
+    {
+      name: 'BST to Other Structures',
+      slug: 'bst-to-other-structures',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Convert BST to greater sum tree; BST to doubly linked list; flatten BST; or convert BST to a sorted array. Key signature: Repurposing BST pointers to build linear structures.',
+      coreIdea: 'For a Greater Sum Tree, perform a reverse inorder traversal (right->root->left) while maintaining a running sum of all visited nodes. For converting a BST to a doubly linked list, perform an inorder traversal and update the left pointers to act as `prev` and the right pointers to act as `next`.',
+      whyItWorks: '1. Why reverse inorder traversal works for Greater Sum Trees: A standard inorder traversal (left->root->right) visits nodes in ascending order. Reversing the traversal (right->root->left) visits them in descending order. This means that when we visit a node, all nodes with greater values have already been processed, and the running sum represents the sum of all greater nodes.\n2. Why BST-to-doubly-linked-list can be done in O(1) auxiliary space: A BST node has left and right pointers, and a doubly linked list node has prev and next pointers. During an inorder traversal, we can update the left pointer to point to the previously visited node and the previous node\'s right pointer to point to the current node, converting the tree in-place without allocating new memory.',
+      codeSkeleton: `// 1. Convert BST to Greater Sum Tree
+function convertBST(root: TreeNode | null): TreeNode | null {
+  let sum = 0;
+
+  function traverse(node: TreeNode | null) {
+    if (!node) return;
+
+    traverse(node.right); // 1. Visit right subtree (larger values)
+    sum += node.val;
+    node.val = sum;       // 2. Update root with running sum
+    traverse(node.left);  // 3. Visit left subtree (smaller values)
+  }
+
+  traverse(root);
+  return root;
+}
+
+// 2. BST to Doubly Linked List (In-place)
+function treeToDoublyList(root: TreeNode | null): TreeNode | null {
+  if (!root) return null;
+
+  let first: TreeNode | null = null;
+  let last: TreeNode | null = null;
+
+  function inorder(node: TreeNode | null) {
+    if (!node) return;
+
+    inorder(node.left);
+
+    if (last !== null) {
+      last.right = node; // Link prev node's next to current
+      node.left = last;  // Link current node's prev to last
+    } else {
+      first = node;      // First node in inorder traversal
+    }
+    last = node;
+
+    inorder(node.right);
+  }
+
+  inorder(root);
+  
+  // Make the list circular
+  first!.left = last;
+  last!.right = first;
+
+  return first;
+}`,
+      timeComplexity: 'O(n)',
+      spaceComplexity: 'O(h) recursion call stack depth; O(1) auxiliary space for in-place pointer updates',
+      commonMistake: 'For Greater Sum Trees, using a standard inorder traversal instead of a reverse inorder traversal. A standard inorder traversal yields the sum of all smaller values instead of greater values.',
+      comparisonNotes: 'These operations convert tree structures into linear structures by taking advantage of the sorted ordering of the nodes.',
+      displayOrder: 5,
+    },
+    {
+      name: 'Balanced BST',
+      slug: 'balanced-bst',
+      groupSlug: 'binary-search-tree',
+      triggerCue: 'Height-balanced BST; AVL tree rebalancing; convert unbalanced BST to balanced; or balance a BST. Key signature: Ensuring the difference in height between subtrees remains at most 1.',
+      coreIdea: 'To balance an unbalanced BST, extract the nodes in sorted order using an inorder traversal, and then reconstruct a balanced BST from the sorted array. AVL trees maintain balance dynamically by performing left and right rotations at unbalanced nodes after insertions and deletions.',
+      whyItWorks: '1. Why inorder traversal + reconstruction balances a BST in O(N) time: An inorder traversal of any BST extracts the keys in sorted order. Rebuilding the tree from this sorted array by recursively choosing the middle element as the root guarantees a balanced tree with a height of O(log N). This approach is simple, robust, and safe for interviews.\n2. Why AVL rotations restore balance while preserving the BST property: Rotations change the tree structure locally without altering the inorder key order. A right rotation on node X with left child Y makes Y the parent and X the right child, preserving the property that left subtree < parent < right subtree.\n3. Why height balance guarantees O(log N) search times: By keeping the heights of the left and right subtrees within 1 of each other, the maximum tree height is mathematically bounded to `2 * log2(N)`. This ensures that all search, insertion, and deletion operations run in logarithmic time.',
+      codeSkeleton: `// static rebalancing: Inorder -> Array -> Rebuild Balanced BST
+function balanceBST(root: TreeNode | null): TreeNode | null {
+  const sortedArr: TreeNode[] = [];
+
+  function inorder(node: TreeNode | null) {
+    if (!node) return;
+    inorder(node.left);
+    sortedArr.push(node);
+    inorder(node.right);
+  }
+
+  inorder(root);
+
+  function build(left: number, right: number): TreeNode | null {
+    if (left > right) return null;
+
+    const mid = Math.floor((left + right) / 2);
+    const node = sortedArr[mid];
+
+    node.left = build(left, mid - 1);
+    node.right = build(mid + 1, right);
+    return node;
+  }
+
+  return build(0, sortedArr.length - 1);
+}
+
+// AVL Right Rotation
+function rightRotate(y: TreeNode): TreeNode {
+  const x = y.left!;
+  const T2 = x.right;
+
+  // Perform rotation
+  x.right = y;
+  y.left = T2;
+
+  return x; // Return new root
+}`,
+      timeComplexity: 'O(n) for static rebalancing; O(log n) for AVL rotations',
+      spaceComplexity: 'O(n) space for the sorted node array',
+      commonMistake: 'Failing to disconnect the left and right child pointers of nodes when collecting them in the sorted array, which can lead to cyclic references during reconstruction.',
+      comparisonNotes: 'Static rebalancing is simple and runs in O(N) time but is not suitable for dynamic updates. AVL trees maintain balance dynamically on each insertion and deletion in O(log N) time.',
+      displayOrder: 6,
+    },
   ];
 
   const dbPatterns: { [key: string]: string } = {};
@@ -1191,7 +1944,11 @@ function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number =
       ? arrayGroup.id
       : p.groupSlug === 'linked-list'
         ? linkedListGroup.id
-        : graphGroup.id;
+        : p.groupSlug === 'graph'
+          ? graphGroup.id
+          : p.groupSlug === 'binary-tree'
+            ? binaryTreeGroup.id
+            : binarySearchTreeGroup.id;
     let existingPattern = await prisma.pattern.findUnique({
       where: { slug: p.slug },
     });
@@ -1361,13 +2118,60 @@ function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number =
     { id: 'p118', title: 'Optimize Water Distribution in a Village', leetcodeUrl: 'https://leetcode.com/problems/optimize-water-distribution-in-a-village/', leetcodeProblemNumber: 1168, difficulty: Difficulty.HARD, descriptionShort: 'Find the minimum cost to supply water to all houses in a village by building wells or pipes.' },
     { id: 'p119', title: 'Min Cost to Connect All Points (Prim\'s)', leetcodeUrl: 'https://leetcode.com/problems/min-cost-to-connect-all-points/#prims', leetcodeProblemNumber: 1584, difficulty: Difficulty.MEDIUM, descriptionShort: 'Connect all points with minimum cost using Prim\'s algorithm (min-heap approach).' },
     { id: 'p120', title: 'Find Critical and Pseudo-Critical Edges in MST', leetcodeUrl: 'https://leetcode.com/problems/find-critical-and-pseudo-critical-edges-in-minimum-spanning-tree/', leetcodeProblemNumber: 1489, difficulty: Difficulty.HARD, descriptionShort: 'Identify critical and pseudo-critical edges in a graph\'s minimum spanning tree.' },
+
+    // --- TREE PROBLEMS (p121 to p158) ---
+    { id: 'p121', title: 'Binary Tree Inorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-inorder-traversal/', leetcodeProblemNumber: 94, difficulty: Difficulty.EASY, descriptionShort: 'Return the inorder traversal of its nodes\' values.' },
+    { id: 'p122', title: 'Binary Tree Preorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-preorder-traversal/', leetcodeProblemNumber: 144, difficulty: Difficulty.EASY, descriptionShort: 'Return the preorder traversal of its nodes\' values.' },
+    { id: 'p123', title: 'Binary Tree Postorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-postorder-traversal/', leetcodeProblemNumber: 145, difficulty: Difficulty.EASY, descriptionShort: 'Return the postorder traversal of its nodes\' values.' },
+    { id: 'p124', title: 'Binary Tree Level Order Traversal', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-level-order-traversal/', leetcodeProblemNumber: 102, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return the level order traversal of its nodes\' values.' },
+    { id: 'p125', title: 'Binary Tree Right Side View', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-right-side-view/', leetcodeProblemNumber: 199, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return the values of the nodes you can see ordered from top to bottom.' },
+    { id: 'p126', title: 'Binary Tree Zigzag Level Order Traversal', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-zigzag-level-order-traversal/', leetcodeProblemNumber: 103, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return the zigzag level order traversal of its nodes\' values.' },
+    { id: 'p127', title: 'Construct Binary Tree from Preorder and Inorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', leetcodeProblemNumber: 105, difficulty: Difficulty.MEDIUM, descriptionShort: 'Reconstruct a binary tree from its preorder and inorder traversals.' },
+    { id: 'p128', title: 'Serialize and Deserialize Binary Tree', leetcodeUrl: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', leetcodeProblemNumber: 297, difficulty: Difficulty.HARD, descriptionShort: 'Design an algorithm to serialize and deserialize a binary tree.' },
+    { id: 'p129', title: 'Construct Binary Tree from Inorder and Postorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/', leetcodeProblemNumber: 106, difficulty: Difficulty.MEDIUM, descriptionShort: 'Reconstruct a binary tree from its inorder and postorder traversals.' },
+    { id: 'p130', title: 'Lowest Common Ancestor of a Binary Tree', leetcodeUrl: 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/', leetcodeProblemNumber: 236, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the lowest common ancestor node of two given nodes in the tree.' },
+    { id: 'p131', title: 'Lowest Common Ancestor of Deepest Leaves', leetcodeUrl: 'https://leetcode.com/problems/lowest-common-ancestor-of-deepest-leaves/', leetcodeProblemNumber: 1123, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the lowest common ancestor of the deepest leaves in the tree.' },
+    { id: 'p132', title: 'Distance Between BST Nodes', leetcodeUrl: 'https://leetcode.com/problems/find-distance-in-a-binary-tree/', leetcodeProblemNumber: 1740, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the distance (number of edges) between two nodes in a binary tree.' },
+    { id: 'p133', title: 'Path Sum', leetcodeUrl: 'https://leetcode.com/problems/path-sum/', leetcodeProblemNumber: 112, difficulty: Difficulty.EASY, descriptionShort: 'Determine if the tree has a root-to-leaf path such that adding up all the values equals targetSum.' },
+    { id: 'p134', title: 'Path Sum II', leetcodeUrl: 'https://leetcode.com/problems/path-sum-ii/', leetcodeProblemNumber: 113, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find all root-to-leaf paths where each path\'s sum equals targetSum.' },
+    { id: 'p135', title: 'Binary Tree Maximum Path Sum', leetcodeUrl: 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', leetcodeProblemNumber: 124, difficulty: Difficulty.HARD, descriptionShort: 'Find the maximum path sum of any non-empty path in the tree.' },
+    { id: 'p136', title: 'Maximum Depth of Binary Tree', leetcodeUrl: 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', leetcodeProblemNumber: 104, difficulty: Difficulty.EASY, descriptionShort: 'Find the maximum depth of a binary tree.' },
+    { id: 'p137', title: 'Balanced Binary Tree', leetcodeUrl: 'https://leetcode.com/problems/balanced-binary-tree/', leetcodeProblemNumber: 110, difficulty: Difficulty.EASY, descriptionShort: 'Determine if a binary tree is height-balanced.' },
+    { id: 'p138', title: 'Diameter of Binary Tree', leetcodeUrl: 'https://leetcode.com/problems/diameter-of-binary-tree/', leetcodeProblemNumber: 543, difficulty: Difficulty.EASY, descriptionShort: 'Find the length of the diameter of the tree.' },
+    { id: 'p139', title: 'Symmetric Tree', leetcodeUrl: 'https://leetcode.com/problems/symmetric-tree/', leetcodeProblemNumber: 101, difficulty: Difficulty.EASY, descriptionShort: 'Check whether a binary tree is a mirror of itself.' },
+    { id: 'p140', title: 'Same Tree', leetcodeUrl: 'https://leetcode.com/problems/same-tree/', leetcodeProblemNumber: 100, difficulty: Difficulty.EASY, descriptionShort: 'Check if two binary trees are structurally identical and have the same node values.' },
+    { id: 'p141', title: 'Subtree of Another Tree', leetcodeUrl: 'https://leetcode.com/problems/subtree-of-another-tree/', leetcodeProblemNumber: 572, difficulty: Difficulty.EASY, descriptionShort: 'Check if a tree is a subtree of another tree.' },
+    { id: 'p142', title: 'Recover Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/recover-binary-search-tree/', leetcodeProblemNumber: 99, difficulty: Difficulty.MEDIUM, descriptionShort: 'Recover the BST where exactly two nodes were swapped by mistake.' },
+    { id: 'p143', title: 'Convert Binary Search Tree to Sorted Doubly Linked List', leetcodeUrl: 'https://leetcode.com/problems/convert-binary-search-tree-to-sorted-doubly-linked-list/', leetcodeProblemNumber: 426, difficulty: Difficulty.MEDIUM, descriptionShort: 'Convert a BST to a sorted circular doubly linked list in-place.' },
+    { id: 'p144', title: 'Search in a Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/search-in-a-binary-search-tree/', leetcodeProblemNumber: 700, difficulty: Difficulty.EASY, descriptionShort: 'Find the node in the BST that the node\'s value equals val and return the subtree.' },
+    { id: 'p145', title: 'Validate Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/validate-binary-search-tree/', leetcodeProblemNumber: 98, difficulty: Difficulty.MEDIUM, descriptionShort: 'Determine if a binary tree is a valid binary search tree.' },
+    { id: 'p146', title: 'Kth Smallest Element in a BST', leetcodeUrl: 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', leetcodeProblemNumber: 230, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the kth smallest element in a BST (1-indexed).' },
+    { id: 'p147', title: 'Insert into a Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/insert-into-a-binary-search-tree/', leetcodeProblemNumber: 701, difficulty: Difficulty.MEDIUM, descriptionShort: 'Insert a value into a binary search tree.' },
+    { id: 'p148', title: 'Delete Node in a BST', leetcodeUrl: 'https://leetcode.com/problems/delete-node-in-a-bst/', leetcodeProblemNumber: 450, difficulty: Difficulty.MEDIUM, descriptionShort: 'Delete the node with the given key in the BST.' },
+    { id: 'p149', title: 'Inorder Successor in BST', leetcodeUrl: 'https://leetcode.com/problems/inorder-successor-in-bst/', leetcodeProblemNumber: 285, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the inorder successor of a given node in the BST.' },
+    { id: 'p150', title: 'Convert Sorted Array to Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/convert-sorted-array-to-binary-search-tree/', leetcodeProblemNumber: 108, difficulty: Difficulty.EASY, descriptionShort: 'Convert a sorted array to a height-balanced BST.' },
+    { id: 'p151', title: 'Convert Sorted List to Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/convert-sorted-list-to-binary-search-tree/', leetcodeProblemNumber: 109, difficulty: Difficulty.MEDIUM, descriptionShort: 'Convert a sorted linked list to a height-balanced BST.' },
+    { id: 'p152', title: 'Construct BST from Preorder Traversal', leetcodeUrl: 'https://leetcode.com/problems/construct-bst-from-preorder-traversal/', leetcodeProblemNumber: 1008, difficulty: Difficulty.MEDIUM, descriptionShort: 'Reconstruct a BST from its preorder traversal.' },
+    { id: 'p153', title: 'Range Sum of BST', leetcodeUrl: 'https://leetcode.com/problems/range-sum-of-bst/', leetcodeProblemNumber: 938, difficulty: Difficulty.EASY, descriptionShort: 'Return the sum of values of all nodes in the BST with a value in the range [low, high].' },
+    { id: 'p154', title: 'Trim a Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/trim-a-binary-search-tree/', leetcodeProblemNumber: 669, difficulty: Difficulty.MEDIUM, descriptionShort: 'Trim the tree so that all its elements lie in [low, high].' },
+    { id: 'p155', title: 'Convert BST to Greater Tree', leetcodeUrl: 'https://leetcode.com/problems/convert-bst-to-greater-tree/', leetcodeProblemNumber: 538, difficulty: Difficulty.MEDIUM, descriptionShort: 'Convert BST to Greater Tree where every key is original key plus sum of all keys greater.' },
+    { id: 'p156', title: 'Flatten Binary Tree to Linked List', leetcodeUrl: 'https://leetcode.com/problems/flatten-binary-tree-to-linked-list/', leetcodeProblemNumber: 114, difficulty: Difficulty.MEDIUM, descriptionShort: 'Flatten the binary tree to a "linked list" in-place.' },
+    { id: 'p157', title: 'Balance a Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/balance-a-binary-search-tree/', leetcodeProblemNumber: 1382, difficulty: Difficulty.MEDIUM, descriptionShort: 'Convert an unbalanced BST to a balanced BST with minimum height.' },
+    { id: 'p158', title: 'Minimum Absolute Difference in BST', leetcodeUrl: 'https://leetcode.com/problems/minimum-absolute-difference-in-bst/', leetcodeProblemNumber: 530, difficulty: Difficulty.EASY, descriptionShort: 'Find the minimum absolute difference between values of any two different nodes in the BST.' },
   ];
 
   const dbProblems: { [key: string]: string } = {};
 
   for (const prob of problemsData) {
+    const normUrl = normalizeUrl(prob.leetcodeUrl);
     let existingProb = await prisma.problem.findFirst({
-      where: { leetcodeUrl: prob.leetcodeUrl },
+      where: {
+        OR: [
+          { leetcodeUrl: prob.leetcodeUrl },
+          { leetcodeUrl: normUrl },
+          { leetcodeUrl: normUrl + '/' }
+        ]
+      },
     });
     if (existingProb) {
       existingProb = await prisma.problem.update({
@@ -1596,6 +2400,82 @@ function primsMST(V: number, adjList: Map<number, AdjMSTNode[]>, start: number =
     { problemId: 'p118', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Optimize Water Distribution in a Village
     { problemId: 'p119', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Min Cost to Connect All Points (Prim's)
     { problemId: 'p120', patternSlug: 'minimum-spanning-tree', isPrimary: true }, // Find Critical and Pseudo-Critical Edges in MST
+
+    // === BINARY TREE MAPPINGS ===
+    // 1. Tree Traversals
+    { problemId: 'p121', patternSlug: 'tree-traversals', isPrimary: true }, // Binary Tree Inorder Traversal
+    { problemId: 'p122', patternSlug: 'tree-traversals', isPrimary: true }, // Binary Tree Preorder Traversal
+    { problemId: 'p123', patternSlug: 'tree-traversals', isPrimary: true }, // Binary Tree Postorder Traversal
+
+    // 2. Level Order / BFS on Tree
+    { problemId: 'p124', patternSlug: 'level-order-bfs', isPrimary: true }, // Binary Tree Level Order Traversal
+    { problemId: 'p125', patternSlug: 'level-order-bfs', isPrimary: true }, // Binary Tree Right Side View
+    { problemId: 'p126', patternSlug: 'level-order-bfs', isPrimary: true }, // Binary Tree Zigzag Level Order Traversal
+
+    // 3. Tree Construction
+    { problemId: 'p127', patternSlug: 'tree-construction', isPrimary: true }, // Construct Binary Tree from Preorder and Inorder
+    { problemId: 'p128', patternSlug: 'tree-construction', isPrimary: true }, // Serialize and Deserialize Binary Tree
+    { problemId: 'p129', patternSlug: 'tree-construction', isPrimary: true }, // Construct Binary Tree from Inorder and Postorder
+
+    // 4. Lowest Common Ancestor (LCA)
+    { problemId: 'p130', patternSlug: 'lowest-common-ancestor', isPrimary: true }, // LCA of a Binary Tree
+    { problemId: 'p131', patternSlug: 'lowest-common-ancestor', isPrimary: true }, // LCA of Deepest Leaves
+    { problemId: 'p132', patternSlug: 'lowest-common-ancestor', isPrimary: true }, // Distance Between BST Nodes (Primary)
+
+    // 5. Tree Path Problems
+    { problemId: 'p133', patternSlug: 'tree-path-problems', isPrimary: true }, // Path Sum
+    { problemId: 'p134', patternSlug: 'tree-path-problems', isPrimary: true }, // Path Sum II
+    { problemId: 'p135', patternSlug: 'tree-path-problems', isPrimary: true }, // Binary Tree Maximum Path Sum
+
+    // 6. Tree Diameter & Height
+    { problemId: 'p136', patternSlug: 'tree-diameter-height', isPrimary: true }, // Maximum Depth of Binary Tree
+    { problemId: 'p137', patternSlug: 'tree-diameter-height', isPrimary: true }, // Balanced Binary Tree (Primary)
+    { problemId: 'p138', patternSlug: 'tree-diameter-height', isPrimary: true }, // Diameter of Binary Tree
+
+    // 7. Tree Symmetry & Comparison
+    { problemId: 'p139', patternSlug: 'tree-symmetry-comparison', isPrimary: true }, // Symmetric Tree
+    { problemId: 'p140', patternSlug: 'tree-symmetry-comparison', isPrimary: true }, // Same Tree
+    { problemId: 'p141', patternSlug: 'tree-symmetry-comparison', isPrimary: true }, // Subtree of Another Tree
+
+    // 8. Morris Traversal
+    { problemId: 'p121', patternSlug: 'morris-traversal', isPrimary: false }, // Binary Tree Inorder Traversal (Secondary)
+    { problemId: 'p142', patternSlug: 'morris-traversal', isPrimary: true }, // Recover Binary Search Tree (Primary)
+    { problemId: 'p143', patternSlug: 'morris-traversal', isPrimary: false }, // Convert BST to Sorted DLL (Secondary)
+
+    // === BINARY SEARCH TREE MAPPINGS ===
+    // 1. BST Search & Validation
+    { problemId: 'p144', patternSlug: 'bst-search-validation', isPrimary: true }, // Search in a BST
+    { problemId: 'p145', patternSlug: 'bst-search-validation', isPrimary: true }, // Validate BST
+    { problemId: 'p146', patternSlug: 'bst-search-validation', isPrimary: false }, // Kth Smallest Element in a BST (Secondary)
+    { problemId: 'p149', patternSlug: 'bst-search-validation', isPrimary: false }, // Inorder Successor in BST (Secondary)
+    { problemId: 'p132', patternSlug: 'bst-search-validation', isPrimary: false }, // Distance Between BST Nodes (Secondary)
+
+    // 2. BST Insert & Delete
+    { problemId: 'p147', patternSlug: 'bst-insert-delete', isPrimary: true }, // Insert into a BST
+    { problemId: 'p148', patternSlug: 'bst-insert-delete', isPrimary: true }, // Delete Node in a BST
+    { problemId: 'p149', patternSlug: 'bst-insert-delete', isPrimary: true }, // Inorder Successor in BST (Primary)
+    { problemId: 'p142', patternSlug: 'bst-insert-delete', isPrimary: false }, // Recover BST (Secondary)
+
+    // 3. BST Construction
+    { problemId: 'p150', patternSlug: 'bst-construction', isPrimary: true }, // Convert Sorted Array to BST
+    { problemId: 'p151', patternSlug: 'bst-construction', isPrimary: true }, // Convert Sorted List to BST
+    { problemId: 'p152', patternSlug: 'bst-construction', isPrimary: true }, // Construct BST from Preorder
+
+    // 4. BST Range Problems
+    { problemId: 'p153', patternSlug: 'bst-range-problems', isPrimary: true }, // Range Sum of BST
+    { problemId: 'p146', patternSlug: 'bst-range-problems', isPrimary: true }, // Kth Smallest Element in a BST (Primary)
+    { problemId: 'p154', patternSlug: 'bst-range-problems', isPrimary: true }, // Trim a BST
+
+    // 5. BST to Other Structures
+    { problemId: 'p155', patternSlug: 'bst-to-other-structures', isPrimary: true }, // Convert BST to Greater Tree
+    { problemId: 'p143', patternSlug: 'bst-to-other-structures', isPrimary: true }, // Convert BST to Sorted DLL (Primary)
+    { problemId: 'p156', patternSlug: 'bst-to-other-structures', isPrimary: true }, // Flatten Binary Tree to Linked List (Primary)
+    { problemId: 'p156', patternSlug: 'tree-traversals', isPrimary: false }, // Flatten Binary Tree to Linked List (Secondary)
+
+    // 6. Balanced BST
+    { problemId: 'p157', patternSlug: 'balanced-bst', isPrimary: true }, // Balance a BST
+    { problemId: 'p137', patternSlug: 'balanced-bst', isPrimary: false }, // Height-Balanced Binary Tree check (Secondary)
+    { problemId: 'p158', patternSlug: 'balanced-bst', isPrimary: true }, // Minimum Absolute Difference in BST
   ];
 
   for (const rel of problemPatternsRelations) {
@@ -1955,7 +2835,7 @@ function normalizeUrl(url: string): string {
   return cleaned.toLowerCase();
 }
 
-function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'array' | 'linked-list' | 'graph' } | null {
+function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'array' | 'linked-list' | 'graph' | 'binary-tree' | 'binary-search-tree' } | null {
   const topics = topicsStr.split(',').map(t => t.trim());
   const topicsLower = topics.map(t => t.toLowerCase());
 
@@ -1968,8 +2848,10 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
                     topicsLower.includes('minimum spanning tree') || 
                     topicsLower.includes('topological sort') || 
                     topicsLower.includes('bipartite');
+  const hasBST = topicsLower.includes('binary search tree') || topicsLower.includes('bst');
+  const hasBinaryTree = topicsLower.includes('binary tree') || (topicsLower.includes('tree') && !hasBST);
 
-  if (!hasLinkedList && !hasArray && !hasGraph) {
+  if (!hasLinkedList && !hasArray && !hasGraph && !hasBST && !hasBinaryTree) {
     return null; // Skip it!
   }
 
@@ -2056,6 +2938,53 @@ function getPatternSlugForProblem(topicsStr: string): { slug: string; group: 'ar
       return { slug: 'island-grid-traversal', group: 'graph' };
     }
     return null;
+  }
+
+  if (hasBST) {
+    if (topicsLower.includes('search') || topicsLower.includes('validate') || topicsLower.includes('validation')) {
+      return { slug: 'bst-search-validation', group: 'binary-search-tree' };
+    }
+    if (topicsLower.includes('insert') || topicsLower.includes('delete') || topicsLower.includes('remove') || topicsLower.includes('successor')) {
+      return { slug: 'bst-insert-delete', group: 'binary-search-tree' };
+    }
+    if (topicsLower.includes('construct') || topicsLower.includes('build')) {
+      return { slug: 'bst-construction', group: 'binary-search-tree' };
+    }
+    if (topicsLower.includes('range') || topicsLower.includes('kth') || topicsLower.includes('trim')) {
+      return { slug: 'bst-range-problems', group: 'binary-search-tree' };
+    }
+    if (topicsLower.includes('convert') || topicsLower.includes('flatten') || topicsLower.includes('doubly linked list')) {
+      return { slug: 'bst-to-other-structures', group: 'binary-search-tree' };
+    }
+    if (topicsLower.includes('balance') || topicsLower.includes('avl')) {
+      return { slug: 'balanced-bst', group: 'binary-search-tree' };
+    }
+    return { slug: 'bst-search-validation', group: 'binary-search-tree' };
+  }
+
+  if (hasBinaryTree) {
+    if (topicsLower.includes('level order') || topicsLower.includes('breadth-first search') || topicsLower.includes('bfs')) {
+      return { slug: 'level-order-bfs', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('construct') || topicsLower.includes('serialize') || topicsLower.includes('reconstruct')) {
+      return { slug: 'tree-construction', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('lowest common ancestor') || topicsLower.includes('lca')) {
+      return { slug: 'lowest-common-ancestor', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('path') || topicsLower.includes('sum')) {
+      return { slug: 'tree-path-problems', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('height') || topicsLower.includes('depth') || topicsLower.includes('diameter') || topicsLower.includes('balanced')) {
+      return { slug: 'tree-diameter-height', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('symmetric') || topicsLower.includes('same') || topicsLower.includes('subtree')) {
+      return { slug: 'tree-symmetry-comparison', group: 'binary-tree' };
+    }
+    if (topicsLower.includes('morris') || topicsLower.includes('constant space')) {
+      return { slug: 'morris-traversal', group: 'binary-tree' };
+    }
+    return { slug: 'tree-traversals', group: 'binary-tree' };
   }
 
   return null;

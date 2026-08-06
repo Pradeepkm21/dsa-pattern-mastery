@@ -31,7 +31,21 @@ const VALID_PATTERN_SLUGS = [
   'bipartite-check',
   'island-grid-traversal',
   'bellman-ford',
-  'minimum-spanning-tree'
+  'minimum-spanning-tree',
+  'tree-traversals',
+  'level-order-bfs',
+  'tree-construction',
+  'lowest-common-ancestor',
+  'tree-path-problems',
+  'tree-diameter-height',
+  'tree-symmetry-comparison',
+  'morris-traversal',
+  'bst-search-validation',
+  'bst-insert-delete',
+  'bst-construction',
+  'bst-range-problems',
+  'bst-to-other-structures',
+  'balanced-bst'
 ];
 
 const COMPANY_FOLDERS: { [key: string]: string } = {
@@ -101,8 +115,10 @@ function getPatternSlugForProblem(topicsStr: string): string | null {
                     topicsLower.includes('minimum spanning tree') || 
                     topicsLower.includes('topological sort') || 
                     topicsLower.includes('bipartite');
+  const hasBST = topicsLower.includes('binary search tree') || topicsLower.includes('bst');
+  const hasBinaryTree = topicsLower.includes('binary tree') || (topicsLower.includes('tree') && !hasBST);
 
-  if (!hasLinkedList && !hasArray && !hasGraph) {
+  if (!hasLinkedList && !hasArray && !hasGraph && !hasBST && !hasBinaryTree) {
     return null;
   }
 
@@ -156,6 +172,53 @@ function getPatternSlugForProblem(topicsStr: string): string | null {
       return 'island-grid-traversal';
     }
     return null;
+  }
+
+  if (hasBST) {
+    if (topicsLower.includes('search') || topicsLower.includes('validate') || topicsLower.includes('validation')) {
+      return 'bst-search-validation';
+    }
+    if (topicsLower.includes('insert') || topicsLower.includes('delete') || topicsLower.includes('remove') || topicsLower.includes('successor')) {
+      return 'bst-insert-delete';
+    }
+    if (topicsLower.includes('construct') || topicsLower.includes('build')) {
+      return 'bst-construction';
+    }
+    if (topicsLower.includes('range') || topicsLower.includes('kth') || topicsLower.includes('trim')) {
+      return 'bst-range-problems';
+    }
+    if (topicsLower.includes('convert') || topicsLower.includes('flatten') || topicsLower.includes('doubly linked list')) {
+      return 'bst-to-other-structures';
+    }
+    if (topicsLower.includes('balance') || topicsLower.includes('avl')) {
+      return 'balanced-bst';
+    }
+    return 'bst-search-validation';
+  }
+
+  if (hasBinaryTree) {
+    if (topicsLower.includes('level order') || topicsLower.includes('breadth-first search') || topicsLower.includes('bfs')) {
+      return 'level-order-bfs';
+    }
+    if (topicsLower.includes('construct') || topicsLower.includes('serialize') || topicsLower.includes('reconstruct')) {
+      return 'tree-construction';
+    }
+    if (topicsLower.includes('lowest common ancestor') || topicsLower.includes('lca')) {
+      return 'lowest-common-ancestor';
+    }
+    if (topicsLower.includes('path') || topicsLower.includes('sum')) {
+      return 'tree-path-problems';
+    }
+    if (topicsLower.includes('height') || topicsLower.includes('depth') || topicsLower.includes('diameter') || topicsLower.includes('balanced')) {
+      return 'tree-diameter-height';
+    }
+    if (topicsLower.includes('symmetric') || topicsLower.includes('same') || topicsLower.includes('subtree')) {
+      return 'tree-symmetry-comparison';
+    }
+    if (topicsLower.includes('morris') || topicsLower.includes('constant space')) {
+      return 'morris-traversal';
+    }
+    return 'tree-traversals';
   }
 
   return null;
