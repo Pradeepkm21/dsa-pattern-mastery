@@ -3,22 +3,24 @@ import { ProgressService } from './progress.service';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { AddMistakeDto } from './dto/add-mistake.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
 export class ProgressController {
   constructor(private progressService: ProgressService) {}
 
   @Get('problems/:id')
+  @UseGuards(OptionalJwtAuthGuard)
   async getProblem(
     @Param('id') problemId: string,
-    @GetUser() user: { id: string },
+    @GetUser() user?: { id: string },
   ) {
-    return this.progressService.findOneProblem(problemId, user.id);
+    return this.progressService.findOneProblem(problemId, user?.id);
   }
 
   @Post('progress/:problemId')
+  @UseGuards(JwtAuthGuard)
   async updateProgress(
     @Param('problemId') problemId: string,
     @GetUser() user: { id: string },
@@ -28,6 +30,7 @@ export class ProgressController {
   }
 
   @Post('progress/:problemId/mistake')
+  @UseGuards(JwtAuthGuard)
   async addMistake(
     @Param('problemId') problemId: string,
     @GetUser() user: { id: string },
@@ -37,6 +40,7 @@ export class ProgressController {
   }
 
   @Post('progress/:problemId/review')
+  @UseGuards(JwtAuthGuard)
   async markReviewed(
     @Param('problemId') problemId: string,
     @GetUser() user: { id: string },

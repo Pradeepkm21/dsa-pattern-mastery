@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, BarChart2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, BarChart2, Lock } from 'lucide-react';
 import { api } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 interface Pattern {
   id: string;
@@ -30,6 +31,7 @@ interface CompanyDetailData {
 
 export const CompanyDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { isAuthenticated } = useAuth();
   const [data, setData] = useState<CompanyDetailData | null>(null);
   const [activeDifficulty, setActiveDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [loading, setLoading] = useState(true);
@@ -97,6 +99,9 @@ export const CompanyDetail: React.FC = () => {
     }
   };
 
+  const isGuest = !isAuthenticated;
+  const problemsToRender = isGuest ? filteredProblems.slice(0, 3) : filteredProblems;
+
   return (
     <div className="min-h-screen bg-[#080C14] text-[#E2E8F0] relative overflow-hidden py-12 px-6">
       {/* Background blobs */}
@@ -156,13 +161,13 @@ export const CompanyDetail: React.FC = () => {
           </div>
 
           <div className="text-xs text-slate-500 font-medium">
-            Showing {filteredProblems.length} of {data.problems.length} questions
+            Showing {isGuest ? Math.min(3, filteredProblems.length) : filteredProblems.length} of {filteredProblems.length} questions
           </div>
         </div>
 
         {/* Problems List Table */}
-        <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden shadow-xl">
-          {filteredProblems.length === 0 ? (
+        <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden shadow-xl mb-6 relative">
+          {problemsToRender.length === 0 ? (
             <div className="p-12 text-center text-slate-500 font-medium text-sm">
               No problems found matching this difficulty level.
             </div>
@@ -179,7 +184,7 @@ export const CompanyDetail: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
-                  {filteredProblems.map((p) => (
+                  {problemsToRender.map((p) => (
                     <tr
                       key={p.id}
                       className="hover:bg-white/5 transition-colors group"
@@ -258,6 +263,34 @@ export const CompanyDetail: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Lock Overlay for Guest Mode */}
+        {isGuest && filteredProblems.length > 3 && (
+          <div className="relative border border-white/5 rounded-2xl p-8 bg-gradient-to-b from-transparent to-[#0B101D]/95 backdrop-blur-md flex flex-col items-center justify-center text-center -mt-16 pt-24 pb-12 z-20 shadow-2xl">
+            <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-t from-transparent to-[#080C14] pointer-events-none"></div>
+            <div className="bg-brand-500/10 border border-brand-500/20 p-3.5 rounded-2xl text-brand-400 mb-4 animate-bounce">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white font-outfit mb-2">Unlock Company-Specific Problems</h3>
+            <p className="text-sm text-slate-400 max-w-md leading-relaxed mb-6">
+              Log in or create a free account to view all {filteredProblems.length} problems asked by {data.name} and track your preparation stats.
+            </p>
+            <div className="flex gap-4">
+              <Link
+                to="/login"
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/15"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                className="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

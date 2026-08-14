@@ -17,7 +17,7 @@ export class PatternsService {
     });
   }
 
-  async findBySlug(slug: string, userId: string) {
+  async findBySlug(slug: string, userId?: string) {
     const pattern = await this.prisma.pattern.findUnique({
       where: { slug },
       include: {
@@ -26,7 +26,7 @@ export class PatternsService {
             problem: {
               include: {
                 progress: {
-                  where: { userId },
+                  where: { userId: userId || '' },
                 },
                 patterns: {
                   include: {

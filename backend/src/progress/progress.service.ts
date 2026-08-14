@@ -7,7 +7,7 @@ import { ProgressStatus } from '@prisma/client';
 export class ProgressService {
   constructor(private prisma: PrismaService) {}
 
-  async findOneProblem(problemId: string, userId: string) {
+  async findOneProblem(problemId: string, userId?: string) {
     const problem = await this.prisma.problem.findUnique({
       where: { id: problemId },
       include: {
@@ -23,7 +23,7 @@ export class ProgressService {
           },
         },
         progress: {
-          where: { userId },
+          where: { userId: userId || '' },
         },
         companies: {
           include: {

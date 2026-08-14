@@ -55,51 +55,41 @@ export const App: React.FC = () => {
           <Route
             path="/patterns"
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <PatternLibrary />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout>
+                <PatternLibrary />
+              </AppLayout>
             }
           />
           <Route
             path="/patterns/:slug"
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <PatternDetail />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout>
+                <PatternDetail />
+              </AppLayout>
             }
           />
           <Route
             path="/problems/:id"
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <ProblemDetail />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout>
+                <ProblemDetail />
+              </AppLayout>
             }
           />
           <Route
             path="/companies"
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Companies />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout>
+                <Companies />
+              </AppLayout>
             }
           />
           <Route
             path="/companies/:slug"
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <CompanyDetail />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout>
+                <CompanyDetail />
+              </AppLayout>
             }
           />
 

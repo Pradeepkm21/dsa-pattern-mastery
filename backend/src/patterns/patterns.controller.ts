@@ -1,10 +1,9 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { PatternsService } from './patterns.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @Controller('patterns')
-@UseGuards(JwtAuthGuard)
 export class PatternsController {
   constructor(private patternsService: PatternsService) {}
 
@@ -14,10 +13,11 @@ export class PatternsController {
   }
 
   @Get(':slug')
+  @UseGuards(OptionalJwtAuthGuard)
   async findOne(
     @Param('slug') slug: string,
-    @GetUser() user: { id: string },
+    @GetUser() user?: { id: string },
   ) {
-    return this.patternsService.findBySlug(slug, user.id);
+    return this.patternsService.findBySlug(slug, user?.id);
   }
 }

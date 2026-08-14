@@ -35,7 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          // Attempt to refresh the access token on load
           const response = await api('/auth/refresh', {
             method: 'POST',
             skipAuth: true,
@@ -60,6 +59,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
+  const syncGuestProgress = async () => {
+    const stored = localStorage.getItem('guest_problems_progress');
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      const problemIds = Object.keys(parsed);
+      if (problemIds.length === 0) return;
+
+      for (const id of problemIds) {
+        const item = parsed[id];
+        try {
+          await api(`/progress/${id}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              status: item.status,
+              confidenceLevel: item.confidenceLevel,
+              dryRunNotes: item.dryRunNotes,
+              whyNotes: item.whyNotes,
+              freeNotes: item.freeNotes,
+            }),
+          });
+        } catch (e) {
+          console.error(`Failed to sync guest progress for problem ${id}:`, e);
+        }
+      }
+      localStorage.removeItem('guest_problems_progress');
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error('Error syncing guest progress:', e);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     const response = await api('/auth/login', {
       method: 'POST',
@@ -75,6 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(data.user);
     setAccessToken(data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
+    
+    // Sync any sandbox progress saved in localStorage
+    await syncGuestProgress();
   };
 
   const signup = async (email: string, password: string, name: string) => {
@@ -92,6 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(data.user);
     setAccessToken(data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
+
+    // Sync any sandbox progress saved in localStorage
+    await syncGuestProgress();
   };
 
   return (

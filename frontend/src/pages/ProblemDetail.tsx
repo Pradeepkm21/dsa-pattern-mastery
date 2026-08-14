@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, 
   AlertCircle, 
@@ -12,7 +13,8 @@ import {
   Eye, 
   CalendarClock,
   Sparkles,
-  Building2
+  Building2,
+  Lock
 } from 'lucide-react';
 
 interface Pattern {
@@ -51,6 +53,7 @@ interface ProblemDetail {
 
 export const ProblemDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { isAuthenticated } = useAuth();
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,6 +70,7 @@ export const ProblemDetail: React.FC = () => {
   // Action state feedbacks
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
 
   const fetchProblemData = async () => {
     if (!id) return;
@@ -76,6 +80,25 @@ export const ProblemDetail: React.FC = () => {
         throw new Error('Problem not found');
       }
       const data = (await response.json()) as ProblemDetail;
+
+      // If Guest Mode, overwrite with any progress from localStorage
+      if (!isAuthenticated) {
+        const stored = localStorage.getItem('guest_problems_progress');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed[id]) {
+              data.progress = {
+                ...data.progress,
+                ...parsed[id]
+              };
+            }
+          } catch (e) {
+            console.error('Error parsing guest progress:', e);
+          }
+        }
+      }
+
       setProblem(data);
       
       // Initialize form values
@@ -93,7 +116,7 @@ export const ProblemDetail: React.FC = () => {
 
   useEffect(() => {
     fetchProblemData();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   const handleSaveProgress = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +124,50 @@ export const ProblemDetail: React.FC = () => {
     setSaving(true);
     setSaveSuccess(false);
 
+    if (!isAuthenticated) {
+      // Local Sandbox Save
+      const stored = localStorage.getItem('guest_problems_progress');
+      let parsed: Record<string, any> = {};
+      if (stored) {
+        try {
+          parsed = JSON.parse(stored);
+        } catch (err) {
+          parsed = {};
+        }
+      }
+
+      const isAlreadyTracked = !!parsed[id];
+      const totalTracked = Object.keys(parsed).length;
+
+      if (!isAlreadyTracked && totalTracked >= 3) {
+        // Block and show login lock modal
+        setShowLockModal(true);
+        setSaving(false);
+        return;
+      }
+
+      // Save locally
+      parsed[id] = {
+        status,
+        confidenceLevel: Number(confidence),
+        dryRunNotes,
+        whyNotes,
+        freeNotes,
+        reviewCount: isAlreadyTracked ? (parsed[id].reviewCount || 0) : 0,
+        lastReviewedAt: isAlreadyTracked ? parsed[id].lastReviewedAt : null,
+        nextReviewAt: isAlreadyTracked ? parsed[id].nextReviewAt : null,
+      };
+
+      localStorage.setItem('guest_problems_progress', JSON.stringify(parsed));
+      setSaveSuccess(true);
+      setSaving(false);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      window.dispatchEvent(new Event('storage')); // trigger update in Navbar immediately
+      fetchProblemData();
+      return;
+    }
+
+    // Authenticated Save
     try {
       const response = await api(`/progress/${id}`, {
         method: 'POST',
@@ -177,10 +244,10 @@ export const ProblemDetail: React.FC = () => {
           <h3 className="text-lg font-bold text-white mb-2">Error Opening Workspace</h3>
           <p className="text-sm text-slate-400 mb-4">{error || 'Problem not found'}</p>
           <Link
-            to="/"
+            to={isAuthenticated ? "/" : "/patterns"}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-medium transition-all"
           >
-            Back to Dashboard
+            Back to Safety
           </Link>
         </div>
       </div>
@@ -208,136 +275,152 @@ export const ProblemDetail: React.FC = () => {
         
         {/* Top Back navigation */}
         <Link
-          to="/"
+          to={isAuthenticated ? "/" : "/patterns"}
           className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-all mb-6 group w-fit"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-all" />
-          Back to Dashboard
+          Back to {isAuthenticated ? 'Dashboard' : 'Patterns'}
         </Link>
 
         {/* Problem Title & Meta Info */}
         <div className="flex flex-col md:flex-row md:items-start justify-between border-b border-white/5 pb-6 mb-8 gap-6">
           <div className="space-y-3 max-w-xl">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {problem.leetcodeProblemNumber && (
-                <span className="text-slate-500 font-mono font-bold text-sm bg-slate-900 border border-white/5 px-2 py-0.5 rounded">
-                  #{problem.leetcodeProblemNumber}
-                </span>
-              )}
-              <h1 className="text-3xl font-extrabold text-white font-outfit">{problem.title}</h1>
+            <div className="flex items-center gap-2">
               <span
-                className={`text-xs px-2.5 py-0.5 rounded-md font-semibold ${
+                className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded font-mono border ${
                   problem.difficulty === 'EASY'
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                     : problem.difficulty === 'MEDIUM'
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                    : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
                 }`}
               >
                 {problem.difficulty}
               </span>
             </div>
-            
-            <p className="text-sm text-slate-400 leading-relaxed">
-              {problem.descriptionShort || 'Add a custom problem restatement below to build your core intuition.'}
-            </p>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs text-slate-500 font-medium">Mapped Patterns:</span>
-              {problem.patterns.map((pat) => (
-                <Link
-                  key={pat.slug}
-                  to={`/patterns/${pat.slug}`}
-                  className={`text-xs px-2.5 py-1 rounded-lg border font-mono transition-all ${
-                    pat.isPrimary
-                      ? 'bg-brand-500/10 border-brand-500/30 text-brand-300'
-                      : 'bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700'
-                  }`}
-                >
-                  {pat.name} {pat.isPrimary && '⭐️'}
-                </Link>
-              ))}
-            </div>
+            <h1 className="text-3xl font-extrabold text-white font-outfit leading-tight">
+              {problem.leetcodeProblemNumber && (
+                <span className="text-slate-500 font-medium font-mono mr-2">
+                  #{problem.leetcodeProblemNumber}
+                </span>
+              )}
+              {problem.title}
+            </h1>
+
+            <p className="text-sm text-slate-400 leading-relaxed">
+              {problem.descriptionShort || 'No quick description added for this problem.'}
+            </p>
           </div>
 
-          {/* Action Header Button and Review Date Status */}
-          <div className="flex flex-col gap-3 min-w-[240px]">
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={problem.leetcodeUrl}
               target="_blank"
-              rel="noreferrer"
-              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-all shadow-md"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-dark-900 border border-white/10 hover:border-brand-500/40 text-slate-300 hover:text-brand-400 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md"
             >
               Solve on LeetCode
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
 
-            <div className="bg-dark-900 border border-white/5 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1 font-semibold"><CalendarClock className="w-3.5 h-3.5 text-brand-400" /> Next Review</span>
-                <span className="font-mono text-slate-200">
-                  {problem.progress.nextReviewAt
-                    ? new Date(problem.progress.nextReviewAt).toLocaleDateString()
-                    : 'Not scheduled'}
-                </span>
+            {isAuthenticated && problem.progress.lastReviewedAt && (
+              <div className="flex items-center gap-2 bg-dark-900 border border-white/5 px-4 py-2.5 rounded-xl text-xs">
+                <CalendarClock className="w-4 h-4 text-brand-400" />
+                <div className="text-left font-mono">
+                  <div className="text-[9px] text-slate-500 uppercase font-semibold leading-none">Last Reviewed</div>
+                  <div className="text-slate-300 font-bold leading-normal mt-0.5">
+                    {new Date(problem.progress.lastReviewedAt).toLocaleDateString()}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-semibold">Review Count</span>
-                <span className="font-mono text-slate-200">{problem.progress.reviewCount}</span>
-              </div>
-              
+            )}
+
+            {isAuthenticated && problem.progress.status !== 'NOT_STARTED' && (
               <button
                 onClick={handleMarkReviewed}
-                className="w-full mt-2 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+                className="flex items-center gap-2 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 hover:border-brand-500/30 text-brand-400 hover:text-brand-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Mark Reviewed
+                <CheckCircle2 className="w-4 h-4" />
+                Mark Reviewed Today
               </button>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Workspace Form Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Form Side — Left/Middle (2 cols) */}
-          <form onSubmit={handleSaveProgress} className="lg:col-span-2 space-y-6">
-            
+          {/* Main workspace form */}
+          <form
+            onSubmit={handleSaveProgress}
+            className="lg:col-span-2 space-y-6"
+          >
+            {/* Guest Sandbox Mode Callout */}
+            {!isAuthenticated && (
+              <div className="glass-panel bg-brand-600/10 border border-brand-500/20 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-bold text-white font-outfit flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-brand-400" />
+                    Guest Sandbox Mode
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                    You are editing this workspace locally. You can track progress and save notes for up to 3 problems as a guest. Login or sign up to sync progress and unlock unlimited tracking.
+                  </p>
+                </div>
+                <div className="flex gap-3 flex-shrink-0">
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Status & Confidence Block */}
-            <div className="glass-panel rounded-2xl p-6 border border-white/5 shadow-xl grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                  My Track Status
+            <div className="glass-panel rounded-2xl p-6 border border-white/5 shadow-xl grid grid-cols-1 sm:grid-cols-2 gap-6 relative">
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Preparation Status
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full bg-dark-900 border border-white/10 focus:border-brand-500 rounded-xl py-3 px-4 text-sm text-white outline-none transition-all"
+                  className="w-full bg-dark-900 border border-white/10 focus:border-brand-500 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none transition-all cursor-pointer font-medium"
                 >
                   <option value="NOT_STARTED">Not Started</option>
-                  <option value="ATTEMPTED">Attempted</option>
-                  <option value="SOLVED">Solved</option>
-                  <option value="CONFIDENT">Confident</option>
+                  <option value="ATTEMPTED">Attempted (Bugs/Slow)</option>
+                  <option value="SOLVED">Solved (Functional)</option>
+                  <option value="CONFIDENT">Confident (Optimal & Clean)</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex justify-between">
-                  <span>Self-Confidence Level</span>
-                  <span className="text-brand-400 font-bold">{confidence}/5</span>
-                </label>
-                <div className="flex items-center gap-4 py-2">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Confidence Level
+                  </label>
+                  <span className="text-xs text-brand-400 font-bold font-mono">
+                    {confidence} / 5
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 py-2.5">
                   <input
                     type="range"
                     min="1"
                     max="5"
                     value={confidence}
                     onChange={(e) => setConfidence(Number(e.target.value))}
-                    className="w-full h-1.5 bg-dark-900 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                    className="w-full accent-brand-500 h-1 bg-dark-900 rounded-lg appearance-none cursor-pointer border border-white/5"
                   />
-                  <div className="flex justify-between w-full text-[10px] text-slate-500 font-mono hidden">
-                    <span>1 (Weak)</span>
-                    <span>5 (Solid)</span>
+                  <div className="flex justify-between w-full text-[9px] text-slate-600 font-bold px-1 select-none pointer-events-none hidden">
+                    <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
                   </div>
                 </div>
               </div>
@@ -345,8 +428,8 @@ export const ProblemDetail: React.FC = () => {
 
             {/* Dry Run Notes */}
             <div className="glass-panel rounded-2xl p-6 border border-white/5 shadow-xl space-y-3">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-brand-400" /> Monospace Dry Run Tracebox
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Dry Run Simulation Traces
               </label>
               <p className="text-xs text-slate-500">
                 Write down your manual trace of a small example here. Forces you to walk through the variables logic step-by-step.
@@ -449,7 +532,7 @@ export const ProblemDetail: React.FC = () => {
             </div>
           </form>
 
-          {/* Mistakes Append-only Log Sidebar (1 col) */}
+          {/* Mistakes Log Sidebar */}
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <MessageSquareWarning className="w-5 h-5 text-red-400" />
@@ -458,56 +541,64 @@ export const ProblemDetail: React.FC = () => {
 
             <div className="glass-panel rounded-2xl p-5 border border-white/5 space-y-4 shadow-xl">
               {/* Add Mistake Block */}
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Log New Mistake Entry
-                </label>
-                <textarea
-                  value={newMistake}
-                  onChange={(e) => setNewMistake(e.target.value)}
-                  rows={3}
-                  className="w-full bg-dark-900 border border-white/10 focus:border-brand-500 rounded-xl p-3 text-xs text-white placeholder-slate-600 outline-none transition-all leading-normal"
-                  placeholder="e.g. 'Used dynamic array resize during the loops which led to memory limit exceeded.'"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddMistake}
-                  disabled={!newMistake.trim()}
-                  className="w-full py-2 bg-red-600/20 hover:bg-red-600 border border-red-500/30 text-red-400 hover:text-white text-xs font-bold rounded-lg transition-all"
-                >
-                  Append to Mistake Log
-                </button>
-              </div>
+              {isAuthenticated ? (
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Log New Mistake Entry
+                  </label>
+                  <textarea
+                    value={newMistake}
+                    onChange={(e) => setNewMistake(e.target.value)}
+                    rows={3}
+                    className="w-full bg-dark-900 border border-white/10 focus:border-brand-500 rounded-xl p-3 text-xs text-white placeholder-slate-600 outline-none transition-all leading-normal"
+                    placeholder="e.g. 'Used dynamic array resize during the loops which led to memory limit exceeded.'"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddMistake}
+                    disabled={!newMistake.trim()}
+                    className="w-full py-2 bg-red-600/20 hover:bg-red-600 border border-red-500/30 text-red-400 hover:text-white text-xs font-bold rounded-lg transition-all"
+                  >
+                    Append to Mistake Log
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 leading-relaxed border border-dashed border-white/10 rounded-xl p-4 text-center bg-white/[0.01]">
+                  Personal mistake logging is available for logged-in accounts. Keep track of recurring bugs to build conceptual awareness.
+                </div>
+              )}
 
               {/* Mistake Log History list */}
-              <div className="border-t border-white/5 pt-4 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mb-2">
-                  <History className="w-4 h-4 text-slate-500" />
-                  Mistake Logs ({parsedMistakes.length})
-                </div>
+              {isAuthenticated && (
+                <div className="border-t border-white/5 pt-4 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mb-2">
+                    <History className="w-4 h-4 text-slate-500" />
+                    Mistake Logs ({parsedMistakes.length})
+                  </div>
 
-                {parsedMistakes.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-slate-600 italic">
-                    No mistakes logged for this problem yet. Track what triggers bugs so you can avoid them!
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                    {parsedMistakes.map((log, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-red-500/5 border border-red-500/10 rounded-xl p-3 space-y-1.5"
-                      >
-                        <p className="text-xs text-slate-200 leading-relaxed font-medium break-words">
-                          {log.text}
-                        </p>
-                        <div className="text-[9px] text-slate-500 font-mono text-right">
-                          {new Date(log.timestamp).toLocaleString()}
+                  {parsedMistakes.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-600 italic">
+                      No mistakes logged for this problem yet. Track what triggers bugs so you can avoid them!
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                      {parsedMistakes.map((log, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-red-500/5 border border-red-500/10 rounded-xl p-3 space-y-1.5"
+                        >
+                          <p className="text-xs text-slate-200 leading-relaxed font-medium break-words">
+                            {log.text}
+                          </p>
+                          <div className="text-[9px] text-slate-500 font-mono text-right">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Asked At Companies Sidebar Card */}
@@ -551,6 +642,42 @@ export const ProblemDetail: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Limit Reached Lock Modal */}
+      {showLockModal && (
+        <div className="fixed inset-0 bg-[#080C14]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-panel border border-white/10 rounded-2xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl relative bg-[#0B0F19]">
+            <div className="bg-brand-500/10 border border-brand-500/20 p-3.5 rounded-2xl text-brand-400 w-fit mx-auto mb-4 animate-bounce">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-extrabold text-white font-outfit mb-2">Sandbox Limit Reached</h3>
+            <p className="text-sm text-slate-400 leading-relaxed mb-6">
+              You are tracking 3 problems in your local Guest Sandbox. Create a free account or log in to track unlimited problems, enable review loops, and sync your sandbox progress automatically!
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                to="/login"
+                className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/15"
+              >
+                Log In & Sync Progress
+              </Link>
+              <Link
+                to="/signup"
+                className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Sign Up Now
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowLockModal(false)}
+                className="text-xs text-slate-500 hover:text-slate-300 font-semibold mt-2 transition-all"
+              >
+                Go Back to Workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
