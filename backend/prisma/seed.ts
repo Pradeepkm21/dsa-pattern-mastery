@@ -129,6 +129,30 @@ async function main() {
     });
   }
 
+  // 2e. Upsert Recursion & Backtracking Pattern Group
+  let recursionBacktrackingGroup = await prisma.patternGroup.findUnique({
+    where: { slug: 'recursion-backtracking' },
+  });
+  if (!recursionBacktrackingGroup) {
+    recursionBacktrackingGroup = await prisma.patternGroup.create({
+      data: {
+        name: 'Recursion & Backtracking',
+        slug: 'recursion-backtracking',
+        description: 'Recursive problem decomposition, decision trees, and constraint-based backtracking patterns for interview preparation',
+        displayOrder: 6,
+      },
+    });
+  } else {
+    recursionBacktrackingGroup = await prisma.patternGroup.update({
+      where: { slug: 'recursion-backtracking' },
+      data: {
+        name: 'Recursion & Backtracking',
+        description: 'Recursive problem decomposition, decision trees, and constraint-based backtracking patterns for interview preparation',
+        displayOrder: 6,
+      },
+    });
+  }
+
   // 3. Create Patterns (Array + Linked List + Graph + Binary Tree + BST)
   const patternsData = [
     // --- ARRAY PATTERNS ---
@@ -1466,6 +1490,264 @@ TreeNode* balanceBST(TreeNode* root) {
       comparisonNotes: 'Static rebalancing is simple and runs in O(N) time but is not suitable for dynamic updates. AVL trees maintain balance dynamically on each insertion and deletion in O(log N) time.',
       displayOrder: 6,
     },
+    {
+      name: 'Basic Recursion',
+      slug: 'basic-recursion',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'compute Nth value in a sequence, break problem into identical subproblem of smaller size, no explicit undo needed, mathematical recurrence relation. Key questions: what is the base case? what is the recursive case? how does the call stack unwind to give the answer?',
+      coreIdea: 'Define base case (smallest input with known answer). Define recursive case (reduce problem size by 1 or factor, combine result). Trust the recursion — assume the recursive call returns the correct answer for smaller input, build the answer for current input from it.',
+      whyItWorks: '1. Why recursion is equivalent to mathematical induction: The base case of recursion corresponds to the base case of mathematical induction (proving the base statement is true for the smallest input). The recursive case corresponds to the inductive step (assuming the statement holds true for input size n-1, and proving it for n). When writing code like `return f(n-1) + something`, you rely on this inductive hypothesis: you assume the recursive call `f(n-1)` computes the correct value for n-1, and you build the correct value for n using that result.\n2. Why call stack depth = recursion depth and why this matters for space complexity: Every recursive call allocates a stack frame to store local variables, parameters, and the return address. In linear recursion (one self-call per level), the call stack grows to size O(n). In tree recursion (multiple calls per level like naive Fibonacci), the stack depth is O(h) where h is the tree height, but the total number of calls grows exponentially (e.g. O(2^n)). Exceeding the system\'s call stack frame limit (~10^4 to 10^5 frames) causes stack overflow.\n3. Why fast exponentiation reduces O(n) to O(log n) time: Naive recursion computes x^n = x * x^(n-1), requiring n multiplications. Fast exponentiation utilizes x^n = (x^(n/2))^2 for even n (and x * (x^((n-1)/2))^2 for odd n), halving the exponent at each level. This reduces the recursion tree height and total operations to O(log n), demonstrating the power of the recursive "divide by half" pattern.',
+      codeSkeleton: `// Linear Recursion: Fibonacci
+int fib(int n) {
+    if (n <= 1) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+
+// Divide-and-Conquer Recursion: Fast Power (Pow(x, n))
+double myPow(double x, long long n) {
+    if (n == 0) return 1.0;
+    if (n < 0) {
+        x = 1.0 / x;
+        n = -n;
+    }
+    double half = myPow(x, n / 2);
+    if (n % 2 == 0) {
+        return half * half;
+    } else {
+        return half * half * x;
+    }
+}`,
+      timeComplexity: 'O(n) for linear recursion; O(log n) for divide-and-conquer; O(2^n) for naive tree recursion',
+      spaceComplexity: 'O(n) for call stack depth (linear); O(log n) for divide-and-conquer',
+      commonMistake: 'Missing or incorrect base case — infinite recursion until stack overflow. Always identify what the smallest valid input is and handle it explicitly before the recursive call.',
+      comparisonNotes: 'Pure recursion for problems with no choice to undo; backtracking when exploring multiple choices and needing to undo invalid ones; dynamic programming when recursion has overlapping subproblems worth memoizing',
+      displayOrder: 1,
+    },
+    {
+      name: 'Subsequences Pattern (Pick / Not Pick)',
+      slug: 'subsequences-pattern',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'all subsets, all subsequences, generate all combinations, power set, sum equals target from elements, pick any number of elements. Key mental model: at each index, make a binary decision — include this element or exclude it. This generates all 2^n possible subsets.',
+      coreIdea: 'At each index, two choices: pick (include current element, recurse on rest) or not pick (skip current element, recurse on rest). Base case: when index reaches end, record current subset. For duplicates (Subsets II): sort first, then skip duplicate elements at the same recursion level (same depth, same position in sorted order).',
+      whyItWorks: '1. Why pick/not-pick generates exactly all 2^n subsets with no duplicates (for distinct elements): At each of the n indices, the recursion tree forks into exactly two independent choices (include or exclude the current element). By the multiplication principle of combinatorics, the total number of unique paths through the decision tree is 2 * 2 * ... * 2 (n times) = 2^n. Each path represents a distinct choice sequence, ensuring all subsets are generated exactly once.\n2. Why sorting + skipping duplicates at the same level works for Subsets II: After sorting the input array, duplicate values become adjacent. At any recursion level (same depth, same index of placement), if we have already explored the branch where we picked arr[i], choosing the same value arr[i+1] (where arr[i+1] == arr[i]) at the SAME level would generate duplicate subsets. Skipping identical elements at the same recursion level (using `if (i > start && arr[i] == arr[i-1]) continue;`) avoids duplicates, while allowing the same values to be picked at deeper levels (different positions in the subset).\n3. Why Combination Sum allows picking the same element multiple times (unbounded): The recursive call for the "pick" choice does not advance the element index (it stays at current index), allowing the same element to be chosen repeatedly. The "not pick" choice advances the index to ensure progress. The recursion is safely bounded by pruning when the running sum equals or exceeds the target.',
+      codeSkeleton: `// 1. Subsets (Pick / Not Pick)
+void getSubsets(vector<int>& nums, int index, vector<int>& current, vector<vector<int>>& result) {
+    if (index == nums.size()) {
+        result.push_back(current);
+        return;
+    }
+    // Decision 1: Pick the element
+    current.push_back(nums[index]);
+    getSubsets(nums, index + 1, current, result);
+    current.pop_back(); // Backtrack
+    
+    // Decision 2: Not Pick the element
+    getSubsets(nums, index + 1, current, result);
+}
+
+// 2. Subsets II (Sorting + Duplicate Skipping at the same level)
+void getSubsetsWithDup(vector<int>& nums, int start, vector<int>& current, vector<vector<int>>& result) {
+    result.push_back(current);
+    for (int i = start; i < nums.size(); ++i) {
+        if (i > start && nums[i] == nums[i-1]) continue; // Skip duplicates at same level
+        current.push_back(nums[i]);
+        getSubsetsWithDup(nums, i + 1, current, result);
+        current.pop_back(); // Backtrack
+    }
+}
+
+// 3. Combination Sum (Unbounded pick without index advance)
+void findCombinations(vector<int>& candidates, int index, int target, vector<int>& current, vector<vector<int>>& result) {
+    if (target == 0) {
+        result.push_back(current);
+        return;
+    }
+    if (index == candidates.size() || target < 0) return;
+    
+    // Decision 1: Pick current element (do not advance index to allow reuse)
+    current.push_back(candidates[index]);
+    findCombinations(candidates, index, target - candidates[index], current, result);
+    current.pop_back(); // Backtrack
+    
+    // Decision 2: Skip current element (advance index)
+    findCombinations(candidates, index + 1, target, current, result);
+}`,
+      timeComplexity: 'O(2^n) for subsets; O(2^n * n) including copying subsets to result; O(2^(target/min_element)) for Combination Sum',
+      spaceComplexity: 'O(n) recursion depth; O(2^n * n) for storing all subsets',
+      commonMistake: 'For Subsets II, skipping duplicates at all levels instead of only at the same recursion level — this incorrectly prunes valid subsets that use the same value at different positions',
+      comparisonNotes: 'Pure recursion generates combinations without backtrack; pick/not-pick backtracking manages a dynamic path array; DP is preferred if we only need the count of subsets instead of actual combinations',
+      displayOrder: 2,
+    },
+    {
+      name: 'Permutations Pattern',
+      slug: 'permutations-pattern',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'all permutations, all arrangements, all orderings, letter combinations, rearrange elements. Key distinction from subsets: ORDER matters. [1,2] and [2,1] are different permutations but the same subset.',
+      coreIdea: 'Two approaches: (1) Visited array: at each position, try every unvisited element, mark visited, recurse, unmark (backtrack). (2) Swapping: swap current index with each subsequent index, recurse on rest, swap back (restore). For duplicates (Permutations II): sort + skip if same value already placed at current position in this recursion level.',
+      whyItWorks: '1. Why total permutations = n! and why the recursion tree has n! leaves:\nAt the first position (index 0), we have n choices. Once the first choice is made, we are left with n - 1 choices for the second position. Continuing this process, at the k-th position we have n - k + 1 remaining choices. By the fundamental counting principle (multiplication principle), the total number of unique sequences is n * (n - 1) * (n - 2) * ... * 1 = n!. This results in a recursion tree where every root-to-leaf path is of length n, culminating in exactly n! leaf nodes, each representing a unique, complete permutation.\n2. Why the swap-and-recurse approach generates all permutations without a visited array:\nThe swap-and-recurse method partitions the array into a fixed prefix [0..d-1] and a suffix [d..n-1] to be permuted. At recursion depth d, we iterate through index i from d to n - 1, and swap the element at index d with the element at index i. This swap brings the element at index i to the front of the active suffix, making it the chosen element at position d. We then recurse on the remaining suffix [d+1..n-1]. Because i ranges across all indices of the remaining suffix, every available element is placed at position d exactly once. Once we reach depth n - 1, the suffix has length 1, representing a completed permutation. This approach avoids the O(n) auxiliary space and lookup time of a visited array by using the input array\'s layout to implicitly track available choices.\n3. Why the unmark/swap-back step (backtracking) is essential — what goes wrong without it:\nWithout the backtracking step, modifications to the shared search state spill over into sibling branches of the recursion tree, corrupting the search space.\nIn the visited-array approach, failing to unmark an element (setting visited[i] = false) after returning from a recursive call means that element remains permanently marked as \'used\' for all subsequent sibling branches. Consequently, the search tree undercounts permutations, generating only a single lexicographical path (e.g., [1, 2, 3]) while leaving all other branches at the same depth restricted from choosing those numbers.\nIn the swap-and-recurse approach, failing to swap back (re-executing swap(arr[d], arr[i]) after recursing) leaves the array in a modified, scrambled state. When the loop advances to index i + 1, it swaps from a corrupted sequence rather than the original starting state at depth d. This violates the invariant that we are swapping the original element at position d with each subsequent element, causing the algorithm to skip valid arrangements entirely, generate duplicate permutations, and leave the input array permanently scrambled.',
+      codeSkeleton: `// 1. Permutations using Visited Array
+void permuteVisited(vector<int>& nums, vector<bool>& visited, vector<int>& current, vector<vector<int>>& result) {
+    if (current.size() == nums.size()) {
+        result.push_back(current);
+        return;
+    }
+    for (int i = 0; i < nums.size(); ++i) {
+        if (visited[i]) continue;
+        visited[i] = true;
+        current.push_back(nums[i]);
+        permuteVisited(nums, visited, current, result);
+        current.pop_back(); // Backtrack
+        visited[i] = false; // Backtrack
+    }
+}
+
+// 2. Permutations using Swapping
+void permuteSwap(vector<int>& nums, int start, vector<vector<int>>& result) {
+    if (start == nums.size()) {
+        result.push_back(nums);
+        return;
+    }
+    for (int i = start; i < nums.size(); ++i) {
+        swap(nums[start], nums[i]);
+        permuteSwap(nums, start + 1, result);
+        swap(nums[start], nums[i]); // Backtrack (Restore)
+    }
+}`,
+      timeComplexity: 'O(n! * n) — n! permutations, each takes O(n) to copy',
+      spaceComplexity: 'O(n) recursion depth + O(n) for current permutation being built',
+      commonMistake: 'Forgetting the unmark/swap-back step — the single most common backtracking bug. Without it, the recursion tree doesn\'t correctly explore all branches.',
+      comparisonNotes: 'Visited array is easier to maintain lexicographical order; swapping is more space-efficient (in-place) but scrambles the array during processing.',
+      displayOrder: 3,
+    },
+    {
+      name: 'Backtracking on Grid',
+      slug: 'backtracking-grid',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'path in grid, move through matrix, find path from source to destination, all paths in 2D grid, word in grid/matrix, explore grid with constraints. Key: grid cells are nodes, valid moves are edges — this is graph DFS with backtracking to explore ALL valid paths.',
+      coreIdea: 'Mark current cell as visited (to avoid revisiting in current path). Try all valid directions (up/down/left/right). Recurse. Unmark cell (backtrack) when done exploring all directions from this cell. For Word Search: match characters as you move, backtrack when character mismatch or out of bounds.',
+      whyItWorks: '1. Why marking + unmarking (backtracking) is necessary for "all paths" problems but not for "does path exist" problems: If we only need to verify if a path exists, once a cell is visited and found to lead to a dead end, it can remain marked as visited because no other path through it can lead to the target. However, in "all paths" or "all combinations" problems, a cell may be part of multiple valid paths using different routes. Permanently marking a cell as visited would block those alternative valid routes, leading to incomplete results. Backtracking (unmarking) restores the cell for other search branches.\n2. Why Word Search uses the cell itself as a visited marker (temporarily modifying the grid) to achieve O(1) auxiliary space: To avoid the O(M * N) memory overhead of a visited grid, we replace the current character in the board with a placeholder character like \'#\' before recursing. Since \'#\' does not match any character in the search string, the grid naturally prevents cycles. Upon returning from the recursion, we restore the original character, resetting the board state for other paths.\n3. Why the time complexity of Word Search is O(M * N * 4^L) vs O(M * N * 3^L): At the starting cell, we can move in 4 directions. In naive implementations that do not pass down the direction of entry to prevent reversing (or if they check all 4 neighbors indiscriminately), we branch by a factor of 4 at every cell, resulting in O(M * N * 4^L) calls where L is the word length. If the algorithm tracks and avoids returning to the immediate parent cell, the branching factor reduces to 3 for all subsequent steps, giving O(M * N * 3^L) complexity.',
+      codeSkeleton: `// Word Search in Grid
+bool dfs(vector<vector<char>>& board, string& word, int r, int c, int index) {
+    if (index == word.length()) return true;
+    if (r < 0 || c < 0 || r >= board.size() || c >= board[0].size() || board[r][c] != word[index]) {
+        return false;
+    }
+    
+    char temp = board[r][c];
+    board[r][c] = '#'; // Mark visited
+    
+    // Explore 4 directions
+    bool found = dfs(board, word, r + 1, c, index + 1) ||
+                 dfs(board, word, r - 1, c, index + 1) ||
+                 dfs(board, word, r, c + 1, index + 1) ||
+                 dfs(board, word, r, c - 1, index + 1);
+                 
+    board[r][c] = temp; // Backtrack (Restore)
+    return found;
+}`,
+      timeComplexity: 'O(4^(m*n)) for all paths; O(m * n * 4^L) (or O(m * n * 3^L) with parent pruning) for Word Search of length L',
+      spaceComplexity: 'O(m*n) for visited array or O(1) extra with in-place marking; O(L) recursion depth for Word Search',
+      commonMistake: 'Not restoring the grid cell after backtracking in Word Search — the \'#\' marker stays permanently, causing subsequent searches from other starting cells to find false "visited" markers',
+      comparisonNotes: 'DFS on grid without backtrack (e.g. Number of Islands) finds connected components; DFS with backtrack (e.g. Word Search) explores paths and cycles.',
+      displayOrder: 4,
+    },
+    {
+      name: 'Constraint Satisfaction',
+      slug: 'constraint-satisfaction',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'place N items with no conflicts, N-Queens, Sudoku, coloring with constraints, fill grid satisfying rules, is there a valid assignment. Key: at each step, check if placing an item here violates any constraint BEFORE recursing — this pruning is what makes backtracking efficient vs brute force.',
+      coreIdea: 'Try placing an item at current position. Check all constraints (row, column, diagonal for N-Queens; row, column, 3x3 box for Sudoku). If valid, place and recurse to next position. If recursion returns false (no solution from here) or after exploring all options, remove placement and try next option (backtrack).',
+      whyItWorks: '1. Why constraint checking BEFORE recursing (pruning) is the key efficiency gain over brute force:\nA brute-force generator explores all possible assignments down to the leaves before checking validity. For instance, placing n items on an n * n board yields n^n configurations, checking each at the leaf (a search space of O(n^n)). Backtracking checks constraints at each step BEFORE recursing. If placing an item at depth i violates a constraint, we discard the branch immediately. This pruning eliminates all n^(n-i) sub-arrangements branching underneath that node without ever visiting them. In N-Queens, pruning based on row/column/diagonal conflicts reduces the search space from n^n to roughly O(n!) in the worst case, and in practice, narrows the search tree for 8-Queens from 8^8 = 16,777,216 leaf checks to just 2,057 nodes visited.\n2. Why N-Queens tracks three sets for O(1) conflict checking:\nTo check if a candidate cell (row, col) is valid in O(1) instead of an O(n) scan of existing queens, we exploit geometric invariants:\n- Column conflicts: Checked via a set storing the column index \'col\'.\n- Left-to-right (major) diagonals (↖ to ↘): For any cell on the same major diagonal, the value (row - col) is constant. Since row - col can range from -(n-1) to (n-1), we map this to a set or shift it by n-1.\n- Right-to-left (minor) diagonals (↗ to ↙): For any cell on the same minor diagonal, the value (row + col) is constant, ranging from 0 to 2n-2.\nBy maintaining three hash sets or boolean arrays (\'cols\', \'diag_major\', \'diag_minor\'), we can verify if a candidate cell is attacked in O(1) time before placing a queen, keeping the state updates and lookups extremely cheap.\n3. Why Sudoku\'s three constraints guarantee solution correctness at the leaf:\nA solved Sudoku grid is valid if and only if every row, column, and 3x3 subgrid contains the numbers 1-9 exactly once with no duplicates. Backtracking maintains this global invariant locally: we only place digit d in cell (row, col) if it is not already present in the current row, column, and corresponding 3x3 subgrid. Since we only make valid moves at each step and propagate these constraints, any state that successfully reaches a leaf node (where all 81 cells are filled) is mathematically guaranteed to be a globally valid solution. Because invalid placements are pruned immediately and never allowed to persist, reaching the end of the recursion guarantees correctness without needing a post-hoc verification step.',
+      codeSkeleton: `// N-Queens Solver with O(1) conflict sets
+int n;
+vector<vector<string>> solutions;
+unordered_set<int> cols;
+unordered_set<int> diag1; // row - col
+unordered_set<int> diag2; // row + col
+
+void solveNQueens(int row, vector<string>& board) {
+    if (row == n) {
+        solutions.push_back(board);
+        return;
+    }
+    for (int col = 0; col < n; ++col) {
+        if (cols.count(col) || diag1.count(row - col) || diag2.count(row + col)) {
+            continue; // Pruned: conflict detected
+        }
+        
+        // Place queen
+        board[row][col] = 'Q';
+        cols.insert(col);
+        diag1.insert(row - col);
+        diag2.insert(row + col);
+        
+        solveNQueens(row + 1, board);
+        
+        // Backtrack (Undo placement)
+        board[row][col] = '.';
+        cols.erase(col);
+        diag1.erase(row - col);
+        diag2.erase(row + col);
+    }
+}`,
+      timeComplexity: 'O(n!) for N-Queens; O(9^(empty cells)) for Sudoku',
+      spaceComplexity: 'O(n) for N-Queens (column and diagonal sets); O(1) extra for Sudoku (board modified in place)',
+      commonMistake: 'For N-Queens, only checking column conflicts and forgetting diagonal conflicts — diagonals are what make N-Queens hard; without them it degenerates to trivial placement',
+      comparisonNotes: 'Constraint satisfaction backtracking relies on pruning branches early; brute-force searches the entire state space and checks validity only at the leaves.',
+      displayOrder: 5,
+    },
+    {
+      name: 'String Backtracking',
+      slug: 'string-backtracking',
+      groupSlug: 'recursion-backtracking',
+      triggerCue: 'partition string into valid parts, generate valid strings, all valid parentheses combinations, palindrome partitioning, split string satisfying condition. Key: string index as the "position" in the decision tree — at each index, decide how to split or extend.',
+      coreIdea: 'Generate Parentheses: track open and close counts, add \'(\' if open < n, add \')\' if close < open. Palindrome Partitioning: at each index, try all possible end indices for current partition — if substring is palindrome, recurse on rest. Word Search II (Trie + Backtracking): build Trie from word list, DFS on grid matching Trie paths — prune when no Trie prefix matches current path.',
+      whyItWorks: '1. Why Generate Parentheses produces exactly the Catalan number C(n) valid strings: The constraint open < n ensures we never place more than n open brackets, and the constraint close < open ensures we never place a close bracket without a matching open one. These two local invariants guarantee that any generated string is valid. The number of valid combinations of length 2n matches the nth Catalan number C(n) = (2n choose n) / (n + 1). The backtracking algorithm naturally explores exactly these valid paths without generating invalid strings.\n2. Why palindrome checking during partitioning (not after) gives O(n^2 * 2^n) instead of O(n * 2^n * n) brute force: A naive approach generates all 2^(n-1) partition schemes and checks each segment at the end. By checking if the current prefix `s[start..i]` is a palindrome BEFORE recursing on `s[i+1..end]`, the backtracking algorithm prunes invalid partition paths immediately. This narrows down the active branches of the recursion tree significantly. The O(n^2) cost can be optimized further using a dynamic programming lookup table for palindrome checks.\n3. Why Word Search II uses a Trie instead of checking each word separately: Checking W words independently on a grid of size M × N requires O(W × M × N × 4^L) operations. By storing all W words in a Trie, we run a single DFS on the grid. At each step, we look up the grid path in the Trie in O(1) time. If the current character path is not a prefix in the Trie, the entire search subtree is pruned immediately. This prevents searching for non-existent word prefixes and reduces worst-case complexity significantly when word list size is large.',
+      codeSkeleton: `// 1. Generate Parentheses
+void backtrack(int open, int close, int n, string& current, vector<string>& result) {
+    if (current.length() == 2 * n) {
+        result.push_back(current);
+        return;
+    }
+    if (open < n) {
+        current.push_back('(');
+        backtrack(open + 1, close, n, current, result);
+        current.pop_back(); // Backtrack
+    }
+    if (close < open) {
+        current.push_back(')');
+        backtrack(open, close + 1, n, current, result);
+        current.pop_back(); // Backtrack
+    }
+}
+
+// 2. Palindrome Partitioning
+bool isPalindrome(const string& s, int l, int r) {
+    while (l < r) {
+        if (s[l++] != s[r--]) return false;
+    }
+    return true;
+}
+
+void partitionBacktrack(string& s, int start, vector<string>& current, vector<vector<string>>& result) {
+    if (start == s.length()) {
+        result.push_back(current);
+        return;
+    }
+    for (int i = start; i < s.length(); ++i) {
+        if (isPalindrome(s, start, i)) {
+            current.push_back(s.substr(start, i - start + 1));
+            partitionBacktrack(s, i + 1, current, result);
+            current.pop_back(); // Backtrack
+        }
+    }
+}`,
+      timeComplexity: 'O(4^n / (n * sqrt(n))) for Generate Parentheses (Catalan growth); O(n * 2^n) for Palindrome Partitioning; O(m * n * 4^L) for Word Search II',
+      spaceComplexity: 'O(n) recursion depth for parentheses; O(n^2) for palindrome cache; O(W*L) for Trie',
+      commonMistake: 'For Palindrome Partitioning, checking if the entire string forms a palindrome instead of checking each partition segment — you need to check each individual partition piece, not the whole string',
+      comparisonNotes: 'Trie + Backtracking combines efficient prefix pruning with spatial grid traversal, making it highly effective for multi-keyword searches in grids.',
+      displayOrder: 6,
+    },
   ];
 
   const dbPatterns: { [key: string]: string } = {};
@@ -1479,7 +1761,9 @@ TreeNode* balanceBST(TreeNode* root) {
           ? graphGroup.id
           : p.groupSlug === 'binary-tree'
             ? binaryTreeGroup.id
-            : binarySearchTreeGroup.id;
+            : p.groupSlug === 'binary-search-tree'
+              ? binarySearchTreeGroup.id
+              : recursionBacktrackingGroup.id;
     let existingPattern = await prisma.pattern.findUnique({
       where: { slug: p.slug },
     });
@@ -1689,6 +1973,24 @@ TreeNode* balanceBST(TreeNode* root) {
     { id: 'p156', title: 'Flatten Binary Tree to Linked List', leetcodeUrl: 'https://leetcode.com/problems/flatten-binary-tree-to-linked-list/', leetcodeProblemNumber: 114, difficulty: Difficulty.MEDIUM, descriptionShort: 'Flatten the binary tree to a "linked list" in-place.' },
     { id: 'p157', title: 'Balance a Binary Search Tree', leetcodeUrl: 'https://leetcode.com/problems/balance-a-binary-search-tree/', leetcodeProblemNumber: 1382, difficulty: Difficulty.MEDIUM, descriptionShort: 'Convert an unbalanced BST to a balanced BST with minimum height.' },
     { id: 'p158', title: 'Minimum Absolute Difference in BST', leetcodeUrl: 'https://leetcode.com/problems/minimum-absolute-difference-in-bst/', leetcodeProblemNumber: 530, difficulty: Difficulty.EASY, descriptionShort: 'Find the minimum absolute difference between values of any two different nodes in the BST.' },
+    // --- RECURSION & BACKTRACKING PROBLEMS ---
+    { id: 'p159', title: 'Fibonacci Number', leetcodeUrl: 'https://leetcode.com/problems/fibonacci-number/', leetcodeProblemNumber: 509, difficulty: Difficulty.EASY, descriptionShort: 'Compute the Nth Fibonacci number.' },
+    { id: 'p160', title: 'Pow(x, n)', leetcodeUrl: 'https://leetcode.com/problems/powx-n/', leetcodeProblemNumber: 50, difficulty: Difficulty.MEDIUM, descriptionShort: 'Implement pow(x, n), which calculates x raised to the power n.' },
+    { id: 'p161', title: 'Subsets', leetcodeUrl: 'https://leetcode.com/problems/subsets/', leetcodeProblemNumber: 78, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all possible subsets (the power set).' },
+    { id: 'p162', title: 'Subsets II', leetcodeUrl: 'https://leetcode.com/problems/subsets-ii/', leetcodeProblemNumber: 90, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all possible subsets where the input array contains duplicates.' },
+    { id: 'p163', title: 'Combination Sum', leetcodeUrl: 'https://leetcode.com/problems/combination-sum/', leetcodeProblemNumber: 39, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all unique combinations of candidates that sum to target.' },
+    { id: 'p164', title: 'Permutations', leetcodeUrl: 'https://leetcode.com/problems/permutations/', leetcodeProblemNumber: 46, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all possible permutations of an array of distinct integers.' },
+    { id: 'p165', title: 'Permutations II', leetcodeUrl: 'https://leetcode.com/problems/permutations-ii/', leetcodeProblemNumber: 47, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all unique permutations of a collection of numbers that might contain duplicates.' },
+    { id: 'p166', title: 'Letter Combinations of a Phone Number', leetcodeUrl: 'https://leetcode.com/problems/letter-combinations-of-a-phone-number/', leetcodeProblemNumber: 17, difficulty: Difficulty.MEDIUM, descriptionShort: 'Return all possible letter combinations that the number could represent from the telephone buttons.' },
+    { id: 'p167', title: 'Unique Paths III', leetcodeUrl: 'https://leetcode.com/problems/unique-paths-iii/', leetcodeProblemNumber: 980, difficulty: Difficulty.HARD, descriptionShort: 'Find the number of 4-directional paths from the starting square to the ending square, visiting every non-obstacle square exactly once.' },
+    { id: 'p168', title: 'Word Search', leetcodeUrl: 'https://leetcode.com/problems/word-search/', leetcodeProblemNumber: 79, difficulty: Difficulty.MEDIUM, descriptionShort: 'Determine if the word exists in the 2D grid.' },
+    { id: 'p169', title: 'Number of Distinct Islands', leetcodeUrl: 'https://leetcode.com/problems/number-of-distinct-islands/', leetcodeProblemNumber: 694, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find the number of distinct island shapes in a 2D grid.' },
+    { id: 'p170', title: 'N-Queens', leetcodeUrl: 'https://leetcode.com/problems/n-queens/', leetcodeProblemNumber: 51, difficulty: Difficulty.HARD, descriptionShort: 'Place n queens on an n x n chessboard such that no two queens attack each other.' },
+    { id: 'p171', title: 'Sudoku Solver', leetcodeUrl: 'https://leetcode.com/problems/sudoku-solver/', leetcodeProblemNumber: 37, difficulty: Difficulty.HARD, descriptionShort: 'Solve a Sudoku puzzle by filling the empty cells.' },
+    { id: 'p172', title: 'Combination Sum II', leetcodeUrl: 'https://leetcode.com/problems/combination-sum-ii/', leetcodeProblemNumber: 40, difficulty: Difficulty.MEDIUM, descriptionShort: 'Find all unique combinations in candidates where the candidate numbers sum to target (each number used once).' },
+    { id: 'p173', title: 'Generate Parentheses', leetcodeUrl: 'https://leetcode.com/problems/generate-parentheses/', leetcodeProblemNumber: 22, difficulty: Difficulty.MEDIUM, descriptionShort: 'Generate all combinations of well-formed parentheses.' },
+    { id: 'p174', title: 'Palindrome Partitioning', leetcodeUrl: 'https://leetcode.com/problems/palindrome-partitioning/', leetcodeProblemNumber: 131, difficulty: Difficulty.MEDIUM, descriptionShort: 'Partition a string such that every substring of the partition is a palindrome.' },
+    { id: 'p175', title: 'Word Search II', leetcodeUrl: 'https://leetcode.com/problems/word-search-ii/', leetcodeProblemNumber: 212, difficulty: Difficulty.HARD, descriptionShort: 'Return all words on the board from a given dictionary.' },
   ];
 
   const dbProblems: { [key: string]: string } = {};
@@ -2007,6 +2309,39 @@ TreeNode* balanceBST(TreeNode* root) {
     { problemId: 'p157', patternSlug: 'balanced-bst', isPrimary: true }, // Balance a BST
     { problemId: 'p137', patternSlug: 'balanced-bst', isPrimary: false }, // Height-Balanced Binary Tree check (Secondary)
     { problemId: 'p158', patternSlug: 'balanced-bst', isPrimary: true }, // Minimum Absolute Difference in BST
+
+    // === RECURSION & BACKTRACKING MAPPINGS ===
+    // 1. Basic Recursion
+    { problemId: 'p159', patternSlug: 'basic-recursion', isPrimary: true },  // Fibonacci Number
+    { problemId: 'p160', patternSlug: 'basic-recursion', isPrimary: true },  // Pow(x, n)
+    { problemId: 'p61',  patternSlug: 'basic-recursion', isPrimary: false }, // Reverse Linked List (Secondary)
+
+    // 2. Subsequences Pattern (Pick / Not Pick)
+    { problemId: 'p161', patternSlug: 'subsequences-pattern', isPrimary: true },  // Subsets
+    { problemId: 'p162', patternSlug: 'subsequences-pattern', isPrimary: true },  // Subsets II
+    { problemId: 'p163', patternSlug: 'subsequences-pattern', isPrimary: true },  // Combination Sum
+    { problemId: 'p172', patternSlug: 'subsequences-pattern', isPrimary: false }, // Combination Sum II (Secondary)
+
+    // 3. Permutations Pattern
+    { problemId: 'p164', patternSlug: 'permutations-pattern', isPrimary: true }, // Permutations
+    { problemId: 'p165', patternSlug: 'permutations-pattern', isPrimary: true }, // Permutations II
+    { problemId: 'p166', patternSlug: 'permutations-pattern', isPrimary: true }, // Letter Combinations of a Phone Number
+
+    // 4. Backtracking on Grid
+    { problemId: 'p167', patternSlug: 'backtracking-grid', isPrimary: true },  // Unique Paths III
+    { problemId: 'p168', patternSlug: 'backtracking-grid', isPrimary: true },  // Word Search
+    { problemId: 'p169', patternSlug: 'backtracking-grid', isPrimary: true },  // Number of Distinct Islands
+    { problemId: 'p175', patternSlug: 'backtracking-grid', isPrimary: false }, // Word Search II (Secondary)
+
+    // 5. Constraint Satisfaction
+    { problemId: 'p170', patternSlug: 'constraint-satisfaction', isPrimary: true }, // N-Queens
+    { problemId: 'p171', patternSlug: 'constraint-satisfaction', isPrimary: true }, // Sudoku Solver
+    { problemId: 'p172', patternSlug: 'constraint-satisfaction', isPrimary: true }, // Combination Sum II (Primary)
+
+    // 6. String Backtracking
+    { problemId: 'p173', patternSlug: 'string-backtracking', isPrimary: true }, // Generate Parentheses
+    { problemId: 'p174', patternSlug: 'string-backtracking', isPrimary: true }, // Palindrome Partitioning
+    { problemId: 'p175', patternSlug: 'string-backtracking', isPrimary: true }, // Word Search II (Primary)
   ];
 
   for (const rel of problemPatternsRelations) {

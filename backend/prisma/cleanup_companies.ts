@@ -45,7 +45,13 @@ const VALID_PATTERN_SLUGS = [
   'bst-construction',
   'bst-range-problems',
   'bst-to-other-structures',
-  'balanced-bst'
+  'balanced-bst',
+  'basic-recursion',
+  'subsequences-pattern',
+  'permutations-pattern',
+  'backtracking-grid',
+  'constraint-satisfaction',
+  'string-backtracking'
 ];
 
 const COMPANY_FOLDERS: { [key: string]: string } = {
